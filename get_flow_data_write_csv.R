@@ -1,5 +1,5 @@
 # Get flow data for Nicola Chinook analysis
-
+rm(list=ls)
 
 setwd("D:/22_masters/100.002_Nicola-Chinook-cohorts/5_Data")
 library(tidyhydat)
@@ -20,8 +20,10 @@ mean_aug_flow_nicola <- hy_daily_flows(station_number= "08LG006") %>%
   mutate(year = year(Date), month= month(Date)) %>% 
   filter(month==8, Parameter=="Flow") %>%
   group_by(year) %>%
-  summarise(mean_flow_aug = mean(Value))
+  summarise(mean_flow_aug_rearing = mean(Value))
 # shift aug flow data so that it is for the summer of rearing for each brood year
 # so have the aug flow for the summer of 2015 be on brood year 2014 (so 2015 is now 2014)
 mean_aug_flow_nicola$year <- mean_aug_flow_nicola$year - 1
-d <- left_join(d, mean_aug_flow_nicola, by="year")
+d <- left_join(max_flow_winter_nicola, mean_aug_flow_nicola, by="year")
+
+write.csv(d, "nicola_yearly_flows.csv", row.names=FALSE)
