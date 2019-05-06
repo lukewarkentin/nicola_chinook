@@ -14,7 +14,7 @@ rstan_options(auto_write=TRUE)
 
 rm(list=ls())
 
-setwd("D:/22_masters/100.002_Nicola-Chinook-cohorts/9_R/nicola_chinook")
+setwd("D:/22_masters/100.002_Nicola-Chinook-cohorts/10_R/nicola_chinook")
 
 # Data -------------
 sd <- read.csv("nicola_spawner_recruits_data.csv") # read in cohort data table with hatchery data
