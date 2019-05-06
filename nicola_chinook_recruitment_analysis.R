@@ -14,7 +14,7 @@ rstan_options(auto_write=TRUE)
 
 rm(list=ls())
 
-setwd("D:/22_masters/100.002_Nicola-Chinook-cohorts/5_Data")
+setwd("D:/22_masters/100.002_Nicola-Chinook-cohorts/9_R/nicola_chinook")
 
 # Data -------------
 sd <- read.csv("nicola_spawner_recruits_data.csv") # read in cohort data table with hatchery data
@@ -145,7 +145,7 @@ plot(fit_ricker_1, pars=c("alpha", "beta", "b1", "b1","b2", "b3", "sigma"))
 # Plot data with model, using last 100 posterior samples and each 26 lines of observed data -------
 png(filename = "fig_R~S_with_model_runs_lognormal.png", width=1000, height=800, pointsize = 25)
 par(mar=c(4,4,0,0) +0.1)
-plot(d$recruits ~ d$spawners, xlab="Spawners", ylab="Recruits")
+plot(d$wild_recruits ~ d$total_spawners, xlab="Spawners", ylab="Recruits")
 for(i in 1:nrow(d)) {
   for(j in 4400:4500) {
     curve(post2$alpha[j] * x * exp(-post2$beta[j] * x + 
@@ -155,7 +155,7 @@ for(i in 1:nrow(d)) {
           add=TRUE, lwd=2, col=adjustcolor("grey", 0.1))
   }
 }
-points(d$recruits ~ d$spawners)
+points(d$wild_recruits ~ d$total_spawners)
 curve(mean(post2$alpha) * x * exp(-mean(post2$beta) * x + 
                                     mean(post2$b1) * mean(d$ocean_surv_anomaly) +
                                     mean(post2$b2) * mean(d$max_flow_fall_c) + 
@@ -176,8 +176,8 @@ rethinking::dens(post2$sigma)
 # Plot triptych plot, min flood, mean flood, max flood
 png(filename="fig_flood_triptych_lognormal.png", width=1200, height=800, pointsize = 25)
 par(mar=c(4,4,4,0) +0.1)
-plot(d$recruits ~ d$spawners, main="Min, mean, and max flood effects on recruitment", xlab="Spawners", ylab="Recruits")
-text( d$spawners, d$recruits, labels=round(d$max_flow_fall, 0), adj=c(0,0), cex= 0.7)
+plot(d$wild_recruits ~ d$total_spawners, main="Min, mean, and max flood effects on recruitment", xlab="Spawners", ylab="Recruits")
+text( d$total_spawners, d$wild_recruits, labels=round(d$max_flow_fall, 0), adj=c(0,0), cex= 0.7)
 # Min flood
 curve(mean(post2$alpha) * x * exp(-mean(post2$beta) * x + 
                                     mean(post2$b1) * mean(d$ocean_surv_anomaly) +
@@ -198,8 +198,8 @@ dev.off()
 # Plot triptych plot, min, mean, max Aug flow
 png(filename="fig_aug_flow_triptych_lognormal.png", width=1200, height=800, pointsize = 25)
 par(mar=c(4,4,4,0) +0.1)
-plot(d$recruits ~ d$spawners, main="Min, mean, and max August mean flow effects on recruitment", xlab="Spawners", ylab="Recruits")
-text( d$spawners, d$recruits, labels=round(d$mean_flow_aug, 0), adj=c(0,0), cex= 0.7)
+plot(d$wild_recruits ~ d$total_spawners, main="Min, mean, and max August mean flow effects on recruitment", xlab="Spawners", ylab="Recruits")
+text( d$total_spawners, d$wild_recruits, labels=round(d$mean_flow_aug_rearing, 0), adj=c(0,0), cex= 0.7)
 # Min flood
 curve(mean(post2$alpha) * x * exp(-mean(post2$beta) * x + 
                                     mean(post2$b1) * mean(d$ocean_surv_anomaly) +
@@ -220,8 +220,8 @@ dev.off()
 # Plot triptych plot, min, mean, max Ocean survival anomaly
 png(filename="fig_ocean_triptych_lognormal.png", width=1200, height=800, pointsize = 25)
 par(mar=c(4,4,4,0) +0.1)
-plot(d$recruits ~ d$spawners, main="Min, mean, and max ocean survival anomaly effects on recruitment", xlab="Spawners", ylab="Recruits")
-text( d$spawners, d$recruits, labels=round(d$ocean_surv_anomaly, 1), adj=c(0,0), cex= 0.7)
+plot(d$wild_recruits ~ d$total_spawners, main="Min, mean, and max ocean survival anomaly effects on recruitment", xlab="Spawners", ylab="Recruits")
+text( d$total_spawners, d$wild_recruits, labels=round(d$ocean_surv_anomaly, 1), adj=c(0,0), cex= 0.7)
 # Min flood
 curve(mean(post2$alpha) * x * exp(-mean(post2$beta) * x + 
                                     mean(post2$b1) * min(d$ocean_surv_anomaly) +
@@ -245,31 +245,31 @@ ppd <- post2[, grep("pp_R", colnames(post2))]
 head(ppd)
 mn_ppd <- apply(ppd,2,mean) # get mean of predicted
 ci_ppd <- apply(ppd,2,rethinking::HPDI,prob=0.89) # get CI of predicted
-plot(d$recruits ~ d$spawners , ylim=c(min(ci_ppd), max(c(ci_ppd, d$recruits))))
-points(x=d$spawners, y=mn_ppd, add=TRUE, col="dodger blue")
-segments(x0= d$spawners, y0=ci_ppd[1,], y1=ci_ppd[2,], lwd=1, col="dodger blue")
+plot(d$wild_recruits ~ d$total_spawners , ylim=c(min(ci_ppd), max(c(ci_ppd, d$wild_recruits))))
+points(x=d$total_spawners, y=mn_ppd, add=TRUE, col="dodger blue")
+segments(x0= d$total_spawners, y0=ci_ppd[1,], y1=ci_ppd[2,], lwd=1, col="dodger blue")
 
 # Plot time series with predicted intervals
 png(filename="fig_predicted_time_series_with_covariates_lognormal.png", width=1200, height=800, pointsize = 30)
 par(mar=c(4,4,0,0) +0.1)
-plot(y=d$recruits, x=d$year, ylim=c(min(ci_ppd), max(ci_ppd)), xlab="Brood year", ylab="Recruits")
-lines(y=mn_ppd, x=d$year, col="dodger blue", add=TRUE)
+plot(y=d$wild_recruits, x=d$brood_year, ylim=c(min(ci_ppd), max(ci_ppd)), xlab="Brood year", ylab="Recruits")
+lines(y=mn_ppd, x=d$brood_year, col="dodger blue", add=TRUE)
 abline(h=0, lty=2, add=TRUE)
-polygon(x=c(d$year, rev(d$year)), y=c(ci_ppd[1,], rev(ci_ppd[2,])), col = adjustcolor('grey', alpha=0.5), border = NA, add=TRUE)
+polygon(x=c(d$brood_year, rev(d$brood_year)), y=c(ci_ppd[1,], rev(ci_ppd[2,])), col = adjustcolor('grey', alpha=0.5), border = NA, add=TRUE)
 dev.off()
 
 # plot predicted vs observed
 png(filename="fig_predicted~observed_with_covariates_lognormal.png", width=1200, height=800, pointsize = 30)
 par(mar=c(4,4,0,0) +0.1)
-plot(mn_ppd ~ d$recruits, ylim=c(min(ci_ppd), max(ci_ppd)), xlab="Observed recruits", ylab="Predicted recruits")
-segments(x0= d$recruits, y0=ci_ppd[1,], y1=ci_ppd[2,], lwd=1)
+plot(mn_ppd ~ d$wild_recruits, ylim=c(min(ci_ppd), max(ci_ppd)), xlab="Observed recruits", ylab="Predicted recruits")
+segments(x0= d$wild_recruits, y0=ci_ppd[1,], y1=ci_ppd[2,], lwd=1)
 abline(b=1, a=0, lwd=2, lty=2, col="orange")
 dev.off()
 
 # Look at residuals
-hist(d$recruits - mn_ppd) # some right skewed ness
+hist(d$wild_recruits - mn_ppd) # some right skewed ness
 # look at how gamma might help
-plot(d$recruits-mn_ppd ~ d$spawners) # looks pretty good, bigger residuals at intermediate values of observed recruits
+plot(d$wild_recruits-mn_ppd ~ d$total_spawners) # looks pretty good, bigger residuals at intermediate values of observed recruits
 abline(h=0, add=TRUE)
-plot(d$recruits-mn_ppd ~ d$recruits) 
+plot(d$wild_recruits-mn_ppd ~ d$wild_recruits) 
 abline(h=0, add=TRUE)
