@@ -10,7 +10,7 @@ library(tidyr)
 # Read in data, dowloaded from RMIS: https://www.rmis.org/cgi-bin/queryfrm.mpl?Table=all_releases&Version=4.1
 
 # NOTE: this data includes releases to Spius Creek, Coldwater River, and Maka Creek, which the data Doug Lofthouse sent me 2019-02-07 does not include. 
-d <- read.csv("./data/RMIS-chinook-CWT-data.txt", stringsAsFactors = FALSE)
+d <- read.csv("./data/RMIS-chinook-CWT-hatchery-release-data.txt", stringsAsFactors = FALSE)
 
 # Process data - only want Nicola, Coldwater, and Spius stocks
 unique(d$stock_location_name)
