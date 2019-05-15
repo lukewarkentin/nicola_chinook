@@ -1,7 +1,6 @@
 # Get flow data for Nicola Chinook analysis
-rm(list=ls)
 
-setwd("D:/22_masters/100.002_Nicola-Chinook-cohorts/5_Data")
+setwd("D:/22_masters/100.002_Nicola-Chinook-cohorts/10_R/nicola_chinook")
 library(tidyhydat)
 library(dplyr)
 library(lubridate)
