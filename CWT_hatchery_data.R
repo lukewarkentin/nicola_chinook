@@ -6,7 +6,7 @@ setwd("D:/22_masters/100.002_Nicola-Chinook-cohorts/10_R/nicola_chinook")
 library(lubridate)
 
 # Read in data, dowloaded from RMIS: https://www.rmis.org/cgi-bin/queryfrm.mpl?Table=all_releases&Version=4.1
-d <- read.csv("RMIS-chinook-CWT-data.txt", stringsAsFactors = FALSE)
+d <- read.csv("./data/RMIS-chinook-CWT-data.txt", stringsAsFactors = FALSE)
 
 # Process data - only want Nicola, Coldwater, and Spius stocks
 unique(d$stock_location_name)

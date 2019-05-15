@@ -25,4 +25,4 @@ mean_aug_flow_nicola <- hy_daily_flows(station_number= "08LG006") %>%
 mean_aug_flow_nicola$year <- mean_aug_flow_nicola$year - 1
 d <- left_join(max_flow_winter_nicola, mean_aug_flow_nicola, by="year")
 
-write.csv(d, "nicola_yearly_flows.csv", row.names=FALSE)
+write.csv(d, "./data/nicola_yearly_flows.csv", row.names=FALSE)
