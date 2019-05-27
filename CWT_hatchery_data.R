@@ -58,25 +58,35 @@ unique(d1$release_location_name)
 
 # Visualize ------
 # Plot releases by type for each year
-fig_hatchery_stage_only <- ggplot(d1, aes(y=fish_count, x=release_year, fill=release_stage)) +
+fig_hatchery_stage_only <- ggplot(d1, aes(y=fish_count, x=brood_year, fill=release_stage)) +
   geom_col() +
   scale_y_continuous(labels=scales::comma, breaks=seq(200000, 800000, by=200000)) + 
   theme_bw()
 fig_hatchery_stage_only
 
-fig_hatchery_stage_only_stocks <- ggplot(d1, aes(y=fish_count, x=release_year, fill=release_stage)) +
+fig_hatchery_stage_only_stocks <- ggplot(d1, aes(y=fish_count, x=brood_year, fill=release_stage)) +
   geom_col() +
   scale_y_continuous(labels=scales::comma, breaks=seq(200000, 800000, by=200000)) + 
   facet_wrap(~interaction(stock_location_name, release_location_name)) +
   theme_bw()
 fig_hatchery_stage_only_stocks
 
-fig_hatchery_stage_mark <- ggplot(d1, aes(y=fish_count, x=release_year, fill=tag_mark_type)) +
+fig_hatchery_stage_mark <- ggplot(d1, aes(y=fish_count, x=brood_year, fill=tag_mark_type)) +
   geom_col() +
   scale_y_continuous(labels=scales::comma) + 
-  facet_grid(release_stage~.) +
+  facet_grid(release_stage~stock_location_name) +
   theme_bw()
 fig_hatchery_stage_mark
+
+range_nic <- range(d1[d1$stock_location_name=="S-Nicola R", 'brood_year']) # get year range for nicola stocks for labels
+fig_hatchery_stage_mark_nicola_stock <- ggplot(d1[d1$stock_location_name=="S-Nicola R", ], aes(y=fish_count, x=brood_year, fill=tag_mark_type)) +
+  geom_col() +
+  scale_y_continuous(labels=scales::comma) + 
+  scale_x_discrete(breaks=range_nic[1]:range_nic[2], limits=range_nic[1]:range_nic[2]) +
+  facet_grid(release_stage~stock_location_name) +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle=90, vjust=0.5))
+fig_hatchery_stage_mark_nicola_stock
 
 fig_release_day_of_year <- ggplot(d1[d1$fish_count>0, ], aes(y=fish_count, x=first_release_day, colour=release_stage)) +
   geom_point() +
