@@ -18,9 +18,15 @@ unique(d$stock_location_name)
 d1 <- d[ which(d$stock_location_name %in% c("S-Bonaparte R", "S-Deadman R") == FALSE), ]
 unique(d1$release_location_name) # check location names
 unique(d1$hatchery_location_name) # Note there are some releases from Merritt Schools and Nicola River Inc.
-# only include spius creek releases
+d1[!d1$hatchery_location_name=="H-Spius Creek H",] # check releases from other sources
+# Merritt School released 80 untagged/unclipped 0+ smolts in 1993 and 80 untagged/unclipped fry in 1995. 
+# Nicola Inc. released 18000 untagged/unclipped eggs in 1981 and 2500 untagged/unclipped eggs in 1982.
+# I think it's safe to remove these rows.
+# only include spius creek 
 d1 <- d1[d1$hatchery_location_name =="H-Spius Creek H",]
 
+#Include only Nicola Stock for analysis
+d1 <- d1[d1$stock_location_name=="S-Nicola R", ]
 
 # Fix dates that don't have days
 # For releases without day (only year and month), make them day 01

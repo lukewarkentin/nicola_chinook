@@ -1,5 +1,5 @@
 # Get flow data for Nicola Chinook analysis
-
+rm(list=ls())
 setwd("D:/22_masters/100.002_Nicola-Chinook-cohorts/10_R/nicola_chinook")
 library(tidyhydat)
 library(dplyr)
@@ -26,3 +26,50 @@ mean_aug_flow_nicola$year <- mean_aug_flow_nicola$year - 1
 d <- left_join(max_flow_winter_nicola, mean_aug_flow_nicola, by="year")
 
 write.csv(d, "./data/nicola_yearly_flows.csv", row.names=FALSE)
+
+
+#get full time series of flow data for Nicola at Spences Bridge
+fd <- hy_daily_flows(station_number= "08LG006")
+# Add year, year-day, and month columns
+fd$year <- year(fd$Date)
+fd$yday <- yday(fd$Date)
+fd$month <- month(fd$Date)
+# get observations by month
+month_tab <- table(fd$year, fd$month)
+# Get vector of years with complete August records
+complete_aug <- which(month_tab[ ,8] >30)
+complete_aug <- names(complete_aug)
+# Get vector of years with complete Oct 1- Dec 31 records (fall)
+complete_fall <- apply(month_tab[,10:12], 1, function(x) all(x>29))
+complete_fall <- names(complete_fall[complete_fall==TRUE])
+
+#plot time series
+library(ggplot2)
+# Plot August flows over time
+rg1 <- range(fd_complete_aug$year)
+fig_aug_flows <-  ggplot(fd_complete_aug[ fd_complete_aug$month %in% 8, ], aes(x=year, y=Value)) + 
+  geom_point(shape=46) +
+  geom_boxplot(aes(group=year)) +
+  geom_smooth(method="lm") +
+  scale_x_discrete(breaks=seq(rg1[1], rg1[2], 1), limits=seq(rg1[1], rg1[2], 1)) +
+  stat_summary(geom="point", fun.y="mean", colour="red") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle=90, vjust=0.5))
+fig_aug_flows
+
+# Plot fall flows over time
+rg <- range(fd_complete_fall$year) # get year range for fall time series
+fig_fall_flows <- ggplot(fd_complete_fall[ fd_complete_fall$month %in% c(10:12), ], aes(x=year, y=Value)) + 
+  geom_point(shape=46) +
+  geom_boxplot(aes(group=year)) +
+  geom_smooth(method="lm") +
+  scale_x_discrete(breaks=seq(rg[1], rg[2], 1), limits=seq(rg[1], rg[2], 1)) +
+  stat_summary(geom="point", fun.y="max", colour="red") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle=90, vjust=0.5))
+fig_fall_flows
+
+#save figures
+rm(fig_list)
+fig_list <- mget(ls(pattern="fig_")) #make list of all figures
+invisible(mapply(ggsave, file=paste0("./figures/", names(fig_list), ".png"), height= 4, width=8, plot=fig_list)) #save list of figures
