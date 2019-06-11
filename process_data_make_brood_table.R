@@ -12,16 +12,16 @@ library(ggplot2)
 # Hatchery release data ------
 # Read in data, dowloaded from RMIS: https://www.rmis.org/cgi-bin/queryfrm.mpl?Table=all_releases&Version=4.1
 # NOTE: this data includes releases to Spius Creek, Coldwater River, and Maka Creek
-hd <- read.csv("./data/RMIS-chinook-CWT-hatchery-release-data.txt", stringsAsFactors = FALSE)
+hd_complete <- read.csv("./data/RMIS-chinook-CWT-hatchery-release-data.txt", stringsAsFactors = FALSE)
 # Process data - only want Nicola, Coldwater, and Spius stocks
 # remove Bonaparte and Deadman
 # d <- d[ which(d$stock_location_name %in% c("S-Bonaparte R", "S-Deadman R") == FALSE), ]
-hd[!hd$hatchery_location_name=="H-Spius Creek H",] # check releases from other sources
+hd_complete[!hd_complete$hatchery_location_name=="H-Spius Creek H",] # check releases from other sources
 # Merritt School released 80 untagged/unclipped 0+ smolts in 1993 and 80 untagged/unclipped fry in 1995. 
 # Nicola Inc. released 18000 untagged/unclipped eggs in 1981 and 2500 untagged/unclipped eggs in 1982.
 # I think it's safe to remove these rows.
 # only include spius creek 
-hd <- hd[hd$hatchery_location_name =="H-Spius Creek H",]
+hd <- hd_complete[hd_complete$hatchery_location_name =="H-Spius Creek H",]
 # Include only Nicola Stock for analysis
 hd <- hd[hd$stock_location_name=="S-Nicola R", ]
 
@@ -56,8 +56,36 @@ adm <- read_excel("./data/Nicola R  Escapement CWT Data 1987-2018.xlsx", sheet =
 names(adm)[27] <- "number_estimated_adj_for_no_data_and_lost_pin"
 adm <- adm[!is.na(adm$River), ] #remove blank rows
 
+###################
+# Remove no pin, lost pin, no data rows  ----- CHECK WITH CHUCK PARKEN THAT THIS IS OKAY - YES**********
+adm <- adm[grep("^[[:digit:]].*", adm$Tagcode), ]
+##################
+unique(adm$`Brood Year`)
+# some rows are missing brood year but have tag code. add brood year for these rows
+for(i in 1:nrow(adm)) {
+  adm$`Brood Year`[i] <- ifelse(is.na(adm$`Brood Year`[i]), 
+         hd$brood_year[match(adm$Tagcode[i], hd$tag_code_or_release_id)],
+         adm$`Brood Year`[i])
+}
+
+# Some of the CWT returns are of Coldwater and Spius stock
+strays_hd <- hd_complete[ hd_complete$tag_code_or_release_id %in% adm$Tagcode[is.na(adm$`Brood Year`)], ]
+strays <- merge(adm[ is.na(adm$`Brood Year`),c(3,4,6,27)], strays_hd, by.x="Tagcode", by.y="tag_code_or_release_id")
+# Look at strays
+fig_hatchery_strays_spius_coldwater <- ggplot(strays, aes(y=number_estimated_adj_for_no_data_and_lost_pin, x=brood_year, fill=stock_location_name)) +
+  geom_col(position=position_dodge()) +
+  theme_bw()
+fig_hatchery_strays_spius_coldwater
+ggsave("./figures/fig_hatchery_strays_spius_coldwater.png", fig_hatchery_strays_spius_coldwater )
+#############
+# For now, remove spius and coldwater stock CWT returns  ----------CHECK WITH CHUCK PARKEN WHAT TO DO ABOUT THIS
+adm$Tagcode[is.na(adm$`Brood Year`)] %in% strays$Tagcode
+adm <- adm[!is.na(adm$`Brood Year`), ]
+#############
+
 # combine male and female returns for each brood year, spawn year,and CWT code
 adms <- adm %>% group_by(`Brood Year`, `Spawning Year`, Tagcode) %>% summarise(estimated_CWT_returns_adj = sum(number_estimated_adj_for_no_data_and_lost_pin, na.rm=TRUE))
+tail(adms)
 
 # Adult CWT Returns - Take by hatchery for brood stock ----------
 adh <- read_excel("./data/Hatchery Removals by Nicola CWT code.xlsx", skip=4)
@@ -84,63 +112,178 @@ adhl$return_age <- as.integer(adhl$return_age)
 # add spawning year column
 adhl$spawning_year <- adhl$BROOD_YEAR_n + adhl$return_age
 
+# Check to see if all tagcodes for CWT hatchery stock adults are from Nicola stock
+adhl[ !(adhl$Tagcode %in% hd$tag_code_or_release_id), 'Tagcode']
+
+
 # Add CWT mark recapture estimates of CWT returns and hatchery removal for broodstock CWT returns by CWT code, brood year, age at return ---------
 #First trim down 
 CWT_adult_comb <- merge(adms, adhl, by.x=c("Brood Year", "Spawning Year", "Tagcode"), by.y=c("BROOD_YEAR_n", "spawning_year", "Tagcode" ), all=TRUE)
 names(CWT_adult_comb)[grep("Brood Year", names(CWT_adult_comb))] <- "brood_year_adult_data"
 
-# Merge adult data with hatchery release CWT data ------------
+# Merge adult data with hatchery release CWT data and calculate return index for each code------------
 CWT_all <- merge(hd_to_merge, CWT_adult_comb, by.x=c("tag_code_or_release_id"), by.y="Tagcode", all=TRUE)
 CWT_all <- CWT_all[ ,-grep("brood_year_adult_data", names(CWT_all))] # remove brood year from adult data
 CWT_all$return_age <- CWT_all$`Spawning Year` - CWT_all$brood_year
 CWT_all$estimated_CWT_returns_adj[is.na(CWT_all$estimated_CWT_returns_adj)] <- 0 #replace NAs with 0
 CWT_all$hatchery_removals_broodstock[is.na(CWT_all$hatchery_removals_broodstock)] <- 0 #replace NAs with 0
-CWT_all$CWT_total_returns <- round(CWT_all$estimated_CWT_returns_adj + CWT_all$hatchery_removals_broodstock, 0)
-CWT_all$return_index <- CWT_all$CWT_total_returns/CWT_all$tagged_adclipped
+CWT_all$CWT_total_returns <- round(CWT_all$estimated_CWT_returns_adj + CWT_all$hatchery_removals_broodstock, 0) # add CWT returns from mark-recapture and hatchery broodstock
+# Sum up releases, returns for each brood year:age (add up across CWT codes)
+return_index <- CWT_all %>% group_by(brood_year, release_stage, return_age) %>% summarise(sum_tagged_adclipped = sum(tagged_adclipped, na.rm=TRUE), sum_untagged_unclipped = sum(untagged_unclipped, na.rm=TRUE), sum_CWT_total_returns=sum(CWT_total_returns, na.rm=TRUE))
 
-# Look at just fry releases
-CWT_sub <- CWT_all[ CWT_all$release_stage %in% "F" & CWT_all$brood_year %in% 1987, ]
+#CWT_all$return_index <- CWT_all$CWT_total_returns/CWT_all$tagged_adclipped # get return index by dividing adults / releases for each CWT code
+
+####################################################
+#### ACCOUNTING FOR UNMARKED HATCHERY RELEASES ##### ---------------
+####################################################
+
+# There are 2 main sources (6 steps total) of unmarked hatchery adult returns that need to be accounted for:
+# I. Brood years with no CWT tags applied to a release stage (e.g., all fry released in 1996 were unmarked and unclipped)
+#       a. Unmarked fry 1996-2017, which need to be expanded from marked yearling smolts using return index factor from 1985 and 1987
+#       b. Unmarked sub-yearling smolts 1986, which need to be expanded from marked fry using return index factor from 1985 and 1987
+#       c. Unmarked sub-yearling smolts 1993 and 1997, which need to be expanded from marked yearling smolts using return index factor from 1985 and 1987-1992
+# II. Brood years with CWT marked and unmarked fish within same release stage (e.g., some marked fry, some unmarked fry)
+#       d. Unmarked fry 1985-1987
+#       e. Unmarked sub-yearling smolts 1984-1985, 19870-1992
+#       f. Unmarked yearling smolts 1985-2016
+
+# Below are the 6 steps:
 
 # Calculate Return index factors ----------
-#calulate average return index for each brood year and return age, across CWT tag codes
+#calulate average return index for each brood year and return age (mean across CWT tag codes)
 CWT_average <- CWT_all %>% group_by(brood_year, return_age, `Spawning Year`, release_stage) %>% summarise(mean_return_index = mean(return_index, na.rm=TRUE), sd_return_index = sd(return_index, na.rm=TRUE))
-# make releas stage into a column with return index as values
-CWT_average_spread <- spread(CWT_average[ ,-grep("sd_return_index", names(CWT_average))], key=release_stage, value=mean_return_index)
-#select only years 1985 and 1987, which have CWT applications to fry and yearling smolts
-CWT_average_spread_sub <- CWT_average_spread[CWT_average_spread$brood_year %in% c(1985, 1987),]
-# Calculate return index factor, which is the return index of the fry / return index of yearling smolts
-CWT_average_spread_sub$return_index_factor_F_Y <- CWT_average_spread_sub$`F` / CWT_average_spread_sub$Y
-CWT_average_spread_sub$return_index_factor_F_Y <- as.numeric(sub("NaN", 0, CWT_average_spread_sub$return_index_factor_F_Y ))
-# average return index for each return age (averae across 1985 and 1987 brood years for each return age)
-CWT_return_index_factors <- CWT_average_spread_sub %>% group_by(return_age) %>% summarise(mean_return_index_factor_F_Y= mean(return_index_factor_F_Y, na.rm=TRUE))
+
+# Get return index factors for life stages 
+# make release stage into a column with return index as values
+return_index_factors <- spread(CWT_average[ ,-grep("sd_return_index", names(CWT_average))], key=release_stage, value=mean_return_index)
+return_index_factors$F_Y <- return_index_factors$`F` / return_index_factors$Y # get return index factor for step a.
+return_index_factors$S_F <- return_index_factors$S / return_index_factors$`F` # get return index factor for step b.
+return_index_factors$S_Y <- return_index_factors$S / return_index_factors$Y # get return index factor for step c.
+# remove rows with return index factors that are all NA
+return_index_factors <- return_index_factors[!apply(is.na(return_index_factors[ ,8:10]), 1, all),]
+# remove return index columns for stages
+return_index_factors <- return_index_factors[ , !names(return_index_factors) %in% c("E", "F", "S", "Y")]
+# convert back to long format
+return_index_factors <- gather(return_index_factors, key="factor_release_stages", value="return_index_factor", 4:6)
+# Keep only real numbers
+# return_index_factors <- return_index_factors[ grep("[[:digit:]].*",return_index_factors$return_index_factor)  , ]
+# Average by factor_release_stages and age
+###########
+# replace Inf return index factors (that had denominator = 0) by NA -------- CHECK WITH CHUCK TO SEE IT THIS IS RIGHT
+############
+return_index_factors$return_index_factor[return_index_factors$return_index_factor==Inf] <- NA
+return_index_factors <- return_index_factors %>% group_by(factor_release_stages, return_age) %>% summarise(mean_return_index_factor= mean(return_index_factor, na.rm=TRUE)) %>% as.data.frame(.)
+str(return_index_factors)
+# visual check
+ggplot(return_index_factors, aes(y=mean_return_index_factor, x=return_age, colour=factor_release_stages )) +
+  geom_point(size=3) +
+  theme_bw()
+
+# Get years that need to be accounted for
+# a. Unmarked fry 1996-2017, which need to be expanded from marked yearling smolts using return index factor from 1985 and 1987
+F_Y_yrs <- 
+  sort(setdiff(
+    unique(hd$brood_year[which(hd$untagged_unclipped>0 & hd$release_stage=="F" )]),# years with releases with untagged fry
+    unique(hd$brood_year[which(hd$tagged_adclipped>0 & hd$release_stage=="F")] ))) # years with releases with adclipped fry
+
+# b. Unmarked sub-yearling smolts 1986, which need to be expanded from marked fry using return index factor from 1985 and 1987
+S_F_yrs <- 1986
+# c. Unmarked sub-yearling smolts 1993 and 1997, which need to be expanded from marked yearling smolts using return index factor from 1985 and 1987-1992
+S_Y_yrs <- c(1993, 1997)
+
+# Make a data frame to fill in with unmarked adult columns
+yrs <- unique(hd$brood_year)
+ages <- 2:5
+unmarked_adults <- expand.grid(brood_year = yrs, return_age = ages)
+unmarked_adults$use_factor <- as.character(NA)
+# check to make sure there is no overlap in years for factors
+intersect(F_Y_yrs, S_F_yrs)
+intersect(F_Y_yrs, S_Y_yrs)
+intersect(S_F_yrs, S_Y_yrs)
+# Fill 
+unmarked_adults$use_factor[unmarked_adults$brood_year %in% F_Y_yrs] <- "F_Y"
+unmarked_adults$use_factor[unmarked_adults$brood_year %in% S_F_yrs] <- "S_F"
+unmarked_adults$use_factor[unmarked_adults$brood_year %in% S_Y_yrs] <- "S_Y"
+
+
+
 
 # Expand unmarked fry using return index factors and return indices for tagged smolts
-years_tagged_fry <- c(1985:1987)
-years_fry <- unique(CWT_all[CWT_all$release_stage %in% "F", grep("brood_year", names(CWT_all))])
-years_untagged_fry <- sort(setdiff( years_fry, years_tagged_fry))
-return_ages <- 2:5
-adults_from_unmarked_fry <- expand.grid(brood_year=years_untagged_fry, return_age = return_ages)
-
+# NEED TO WRITE NEW FUNCTION
+# Write function that can be passed in factor, year, and age
+adults_from_unmarked <- function(factor, year, age)   
+  
+   
+# Function to get unmarked adults
 calc_adults_from_unmarked_fry <- function(x) { # function where x=data frame, i= year and j =return age
   CWT_average_spread$Y[CWT_average_spread$brood_year %in% x[1] & CWT_average_spread$return_age %in% x[2]] * # Return index for smolts
   CWT_return_index_factors$mean_return_index_factor_F_Y[CWT_return_index_factors$return_age==x[2]] * # Return Index factor for fry
   sum(CWT_all$untagged_unclipped[CWT_all$release_stage=="F" & CWT_all$brood_year==x[1]], na.rm=TRUE ) # fry unclipped released
 }
+# Apply function to data frame of years and ages
+adults_from_unmarked_fry$count <-  as.numeric(apply(adults_from_unmarked_fry, 1, calc_adults_from_unmarked_fry))
+str(adults_from_unmarked_fry)
 
-adults_from_unmarked_fry$count <-  apply(adults_from_unmarked_fry, 1, calc_adults_from_unmarked_fry)
-
-# for (i in years_untagged_fry) {
-#  for(j in return_ages) {
- #    CWT_average_spread$S[CWT_average_spread$brood_year==i & CWT_average_spread$return_age==j] * # Return index for smolts
-#                                      CWT_return_index_factors$mean_return_index_factor_F_Y[CWT_return_index_factors$return_age==j] # Return Index factor for fry
-#                                      sum(CWT_all$untagged_unclipped[CWT_all$release_stage=="F" & CWT_all$return_age==j & CWT_all$brood_year==i] ) # fry unclipped released
-    
-#  }
-#}
+# visual check 
+ggplot(adults_from_unmarked_fry, aes(y=count, x=brood_year, colour=factor(return_age))) +
+  geom_point()
 
 # Examine data -----------
 ggplot(CWT_all[CWT_all$release_stage %in% c("F", "S", "Y"),], aes(y=return_index, x=brood_year, colour=factor(return_age), fill=factor(return_age))) +
-  stat_summary(fun.y="mean", na.rm=TRUE, geom="point", size=3, colour="black", shape=23) +
-  geom_point(shape=1) +
+  stat_summary(fun.y="mean", na.rm=TRUE, geom="point", size=5, shape=45, stroke=5) +
+  geom_point(shape=1, size=2) +
   facet_grid(release_stage~., scales="free_y") +
   theme_bw()
+ggsave("./figures/fig_return_index_by_release_stage_broodyear_age.png", plot=last_plot(), width=6, height=4)
+
+# Look at fry return index and sample size
+ggplot(CWT_all[CWT_all$release_stage %in% "F",], aes(y=return_index, x=brood_year, colour=factor(return_age), fill=factor(return_age))) +
+  geom_point(shape=1, size=2) +
+  geom_text(aes(label=tagged_adclipped)) +
+  theme_bw()
+
+# Look at sub-yearling return index and sample size
+ggplot(CWT_all[CWT_all$release_stage %in% "S",], aes(y=return_index, x=brood_year, colour=factor(return_age), fill=factor(return_age))) +
+  geom_point(shape=1, size=2) +
+  geom_text(aes(label=tagged_adclipped)) +
+  theme_bw()
+
+# Look at yearling return index and sample size
+ggplot(CWT_all[CWT_all$release_stage %in% "Y",], aes(y=return_index, x=brood_year, colour=factor(return_age), fill=factor(return_age))) +
+  geom_point(shape=1, size=2) +
+  geom_text(aes(label=tagged_adclipped)) +
+  theme_bw()
+
+# Look at release size for fry
+range(CWT_all$brood_year)
+ggplot(CWT_all[CWT_all$release_stage %in% "F",], aes(y=avg_weight, x=brood_year, colour=tag_code_or_release_id, size=tagged_adclipped)) +
+  geom_point(shape=1, position=position_dodge(width=0.3)) +
+  guides(colour = "none") +
+  scale_x_discrete(limits=seq(1984,2017,1), breaks=seq(1984,2017,1), labels=seq(1984,2017,1))+
+  #geom_text(aes(label=tagged_adclipped)) +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle=90, vjust=0.5))
+
+# Look at release size for sub-yearlings
+# Note that 1989 and 1990 had differences between CWT cohorts
+ggplot(CWT_all[CWT_all$release_stage %in% "S",], aes(y=avg_weight, x=brood_year, colour=tag_code_or_release_id, size=tagged_adclipped)) +
+  geom_point(shape=1, position=position_dodge(width=0.3)) +
+  guides(colour = "none") +
+  scale_x_discrete(limits=seq(1984,2017,1), breaks=seq(1984,2017,1), labels=seq(1984,2017,1))+
+  #geom_text(aes(label=tagged_adclipped)) +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle=90, vjust=0.5))
+
+# Look at release size for yearlings
+# 1993-1997 have some differences between CWT batches within the brood year
+ggplot(CWT_all[CWT_all$release_stage %in% "Y",], aes(y=avg_weight, x=brood_year, colour=tag_code_or_release_id, size=yday(last_release_date))) +
+  geom_point(shape=1, position=position_dodge(width=0.3)) +
+  guides(colour = "none") +
+  scale_x_discrete(limits=seq(1984,2017,1), breaks=seq(1984,2017,1), labels=seq(1984,2017,1))+
+  #geom_text(aes(label=tagged_adclipped)) +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle=90, vjust=0.5))
+
+# Note that right now I am taking the average of the return indexes, (approach 1). But I could sum the returns and divide by the sum of releases to get the return index (approach 2).
+(1/10 + 2/20 + 30/200 + 10/50 + 1/20)/5 # approach 1
+(1+2+30+10+1) / (10+20+200+50+20) #approach 2

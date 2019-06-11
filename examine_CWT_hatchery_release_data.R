@@ -24,7 +24,7 @@ d1[!d1$hatchery_location_name=="H-Spius Creek H",] # check releases from other s
 # I think it's safe to remove these rows.
 # only include spius creek 
 d1 <- d1[d1$hatchery_location_name =="H-Spius Creek H",]
-
+d2 <- d1 #make data frame with all stocks
 #Include only Nicola Stock for analysis
 d1 <- d1[d1$stock_location_name=="S-Nicola R", ]
 
@@ -53,7 +53,7 @@ write.csv(d1, "check-data.csv")
 #Get one count column - wide to long format
 to_gather <- tail(names(d1), n=5) #get last 5 column names - these hold the count data
 d1 <- gather(d1, key="tag_mark_type", value="fish_count", to_gather)
-
+d2 <- gather(d2, key="tag_mark_type", value="fish_count", to_gather)
 # Add day of year for first and last release date
 d1$first_release_day <- yday(d1$first_release_date)
 d1$last_release_day <- yday(d1$last_release_date)
@@ -73,9 +73,16 @@ fig_hatchery_stage_only
 fig_hatchery_stage_only_stocks <- ggplot(d1, aes(y=fish_count, x=brood_year, fill=release_stage)) +
   geom_col() +
   scale_y_continuous(labels=scales::comma, breaks=seq(200000, 800000, by=200000)) + 
-  facet_wrap(~interaction(stock_location_name, release_location_name)) +
+  facet_grid(~interaction(stock_location_name, release_location_name)) +
   theme_bw()
 fig_hatchery_stage_only_stocks
+
+fig_hatchery_stage_only_all_stocks <- ggplot(d2, aes(y=fish_count, x=brood_year, fill=tag_mark_type)) +
+  geom_col() +
+  scale_y_continuous(labels=scales::comma, breaks=seq(200000, 800000, by=200000)) + 
+  facet_grid(release_stage~stock_location_name) +
+  theme_bw()
+fig_hatchery_stage_only_all_stocks
 
 fig_hatchery_stage_mark <- ggplot(d1, aes(y=fish_count, x=brood_year, fill=tag_mark_type)) +
   geom_col() +
