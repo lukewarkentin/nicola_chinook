@@ -23,7 +23,7 @@ hd_complete[!hd_complete$hatchery_location_name=="H-Spius Creek H",] # check rel
 # only include spius creek 
 hd <- hd_complete[hd_complete$hatchery_location_name =="H-Spius Creek H",]
 # Include only Nicola Stock for analysis
-hd <- hd[hd$stock_location_name=="S-Nicola R", ]
+hd <- hd[hd$stock_location_name %in% c("S-Nicola R","S-Coldwater R", "S-Spius Cr"), ]
 
 # Fix dates that don't have days
 # For releases without day (only year and month), make them day 01
@@ -48,8 +48,9 @@ hd$last_release_date <- ymd(hd$last_release_date)
 names(hd)
 to_keep <- names(hd)[c(1,2,5,6,7,11,15,16,31,32,34,36:40)]
 to_keep
-hd_to_merge <- hd[ , to_keep]
-
+hd_to_merge <- hd[ , to_keep] #obsolete
+hd_sum <- hd %>% group_by(release_stage, brood_year, stock_location_name) %>% summarise(sum_tagged_adclipped= sum(tagged_adclipped, na.rm=TRUE))
+  
 # Adult CWT Returns - Mark-recapture program ----------
 adm <- read_excel("./data/Nicola R  Escapement CWT Data 1987-2018.xlsx", sheet = "Nicola - Escapement CWT Data")
 # rename the estimated number of CWT fish column 
@@ -77,11 +78,6 @@ fig_hatchery_strays_spius_coldwater <- ggplot(strays, aes(y=number_estimated_adj
   theme_bw()
 fig_hatchery_strays_spius_coldwater
 ggsave("./figures/fig_hatchery_strays_spius_coldwater.png", fig_hatchery_strays_spius_coldwater )
-#############
-# For now, remove spius and coldwater stock CWT returns  ----------CHECK WITH CHUCK PARKEN WHAT TO DO ABOUT THIS
-adm$Tagcode[is.na(adm$`Brood Year`)] %in% strays$Tagcode
-adm <- adm[!is.na(adm$`Brood Year`), ]
-#############
 
 # combine male and female returns for each brood year, spawn year,and CWT code
 adms <- adm %>% group_by(`Brood Year`, `Spawning Year`, Tagcode) %>% summarise(estimated_CWT_returns_adj = sum(number_estimated_adj_for_no_data_and_lost_pin, na.rm=TRUE))
@@ -111,33 +107,49 @@ adhl$BROOD_YEAR_n <- as.integer(adhl$BROOD_YEAR_n)
 adhl$return_age <- as.integer(adhl$return_age)
 # add spawning year column
 adhl$spawning_year <- adhl$BROOD_YEAR_n + adhl$return_age
-
+# remove all rows with brood year > 2014 (need to have only years with complete record, 4 yr fish from brood year 2015 will be returning fall 2019) - TO UPDATE WITH 2019 SPAWNIN SEASON DATA
+adhl <- adhl[!adhl$BROOD_YEAR_n > 2014, ]
 # Check to see if all tagcodes for CWT hatchery stock adults are from Nicola stock
 adhl[ !(adhl$Tagcode %in% hd$tag_code_or_release_id), 'Tagcode']
-
 
 # Add CWT mark recapture estimates of CWT returns and hatchery removal for broodstock CWT returns by CWT code, brood year, age at return ---------
 #First trim down 
 CWT_adult_comb <- merge(adms, adhl, by.x=c("Brood Year", "Spawning Year", "Tagcode"), by.y=c("BROOD_YEAR_n", "spawning_year", "Tagcode" ), all=TRUE)
-names(CWT_adult_comb)[grep("Brood Year", names(CWT_adult_comb))] <- "brood_year_adult_data"
+# change name of brood year column
+names(CWT_adult_comb)[grep("Brood Year", names(CWT_adult_comb))] <- "brood_year"
+# add return age if missing
+for (i in 1:nrow(CWT_adult_comb)) {
+  CWT_adult_comb$return_age[i] <- ifelse(is.na(CWT_adult_comb$return_age[i]), CWT_adult_comb$`Spawning Year`[i]-CWT_adult_comb$brood_year[i], CWT_adult_comb$return_age[i] )
+}
+CWT_adult_comb$estimated_CWT_returns_adj[is.na(CWT_adult_comb$estimated_CWT_returns_adj)] <- 0 #replace NAs with 0
+CWT_adult_comb$hatchery_removals_broodstock[is.na(CWT_adult_comb$hatchery_removals_broodstock)] <- 0 #replace NAs with 0
+CWT_adult_comb$CWT_total_returns <- round(CWT_adult_comb$estimated_CWT_returns_adj + CWT_adult_comb$hatchery_removals_broodstock, 0) # add CWT returns from mark-recapture and hatchery broodstock
+# Check that all CWT returns are associated with Nicola, Spius, or Coldwater stocks and merge with release data
+CWT_adult_comb_stock <- merge(CWT_adult_comb, hd_complete[ ,names(hd_complete) %in% c("stock_location_name", "tag_code_or_release_id", "release_stage")], by.x="Tagcode", by.y="tag_code_or_release_id", all.x=TRUE)
+
+# Summarise totals for each brood year and return age and release stage and stock
+CWT_adult_sum <- CWT_adult_comb_stock %>% group_by(brood_year, return_age, release_stage, stock_location_name) %>% summarise(sum_CWT_returns= sum(CWT_total_returns, na.rm=TRUE))
 
 # Merge adult data with hatchery release CWT data and calculate return index for each code------------
-CWT_all <- merge(hd_to_merge, CWT_adult_comb, by.x=c("tag_code_or_release_id"), by.y="Tagcode", all=TRUE)
-CWT_all <- CWT_all[ ,-grep("brood_year_adult_data", names(CWT_all))] # remove brood year from adult data
-CWT_all$return_age <- CWT_all$`Spawning Year` - CWT_all$brood_year
-CWT_all$estimated_CWT_returns_adj[is.na(CWT_all$estimated_CWT_returns_adj)] <- 0 #replace NAs with 0
-CWT_all$hatchery_removals_broodstock[is.na(CWT_all$hatchery_removals_broodstock)] <- 0 #replace NAs with 0
-CWT_all$CWT_total_returns <- round(CWT_all$estimated_CWT_returns_adj + CWT_all$hatchery_removals_broodstock, 0) # add CWT returns from mark-recapture and hatchery broodstock
-# Sum up releases, returns for each brood year:age (add up across CWT codes)
-return_index <- CWT_all %>% group_by(brood_year, release_stage, return_age) %>% summarise(sum_tagged_adclipped = sum(tagged_adclipped, na.rm=TRUE), sum_untagged_unclipped = sum(untagged_unclipped, na.rm=TRUE), sum_CWT_total_returns=sum(CWT_total_returns, na.rm=TRUE))
-
-#CWT_all$return_index <- CWT_all$CWT_total_returns/CWT_all$tagged_adclipped # get return index by dividing adults / releases for each CWT code
-
+CWT_all <- merge(hd_sum, CWT_adult_sum, by=c("brood_year", "release_stage", "stock_location_name"), all=TRUE)
+# check that worked
+#check <- CWT_all %>% group_by(stock_location_name, brood_year, release_stage) %>% summarise(released = paste(sum_tagged_adclipped, collapse=", "))
+# Calculate return index
+CWT_all$return_index <- CWT_all$sum_CWT_returns/CWT_all$sum_tagged_adclipped # get return index by dividing adults / releases for each CWT code
+# Remove na brood year row (with ~55 returns; possibly other stock) and Z and E release stage rows
+CWT_all <- CWT_all[ !is.na(CWT_all$brood_year),]
+CWT_all <- CWT_all[ !CWT_all$release_stage %in% c("E", "Z"), ]
+# Remove rows with 0 tagged_adclipped - not used for return index
+CWT_all <- CWT_all[ !CWT_all$sum_tagged_adclipped==0, ]
+# remove all rows with brood year > 2014 (need to have only years with complete record, 4 yr fish from brood year 2015 will be returning fall 2019) - TO UPDATE WITH 2019 SPAWNIN SEASON DATA
+CWT_all <- CWT_all[ !CWT_all$brood_year > 2014, ]
+# Remove one Coldwater row with NA returns
+CWT_all <- CWT_all[!(CWT_all$stock_location_name=="S-Coldwater R" & is.na(CWT_all$sum_CWT_returns)), ]
 ####################################################
 #### ACCOUNTING FOR UNMARKED HATCHERY RELEASES ##### ---------------
 ####################################################
 
-# There are 2 main sources (6 steps total) of unmarked hatchery adult returns that need to be accounted for:
+# There are 3 main sources (14) steps total) of unmarked hatchery adult returns that need to be accounted for:
 # I. Brood years with no CWT tags applied to a release stage (e.g., all fry released in 1996 were unmarked and unclipped)
 #       a. Unmarked fry 1996-2017, which need to be expanded from marked yearling smolts using return index factor from 1985 and 1987
 #       b. Unmarked sub-yearling smolts 1986, which need to be expanded from marked fry using return index factor from 1985 and 1987
@@ -146,21 +158,27 @@ return_index <- CWT_all %>% group_by(brood_year, release_stage, return_age) %>% 
 #       d. Unmarked fry 1985-1987
 #       e. Unmarked sub-yearling smolts 1984-1985, 19870-1992
 #       f. Unmarked yearling smolts 1985-2016
+# III. Strays from Coldwater and Spius hatchery stock
+#       g. Unmarked Coldwater fry
+#       h. Unmarked Spius fry
+#       i. Unmarked Coldwater sub-yearlings
+#       j. Unmarked Spius sub-yearlings
+#       k. Unmarked Coldwater yearlings (CWT and non-CWT years)
+#       l. Unmarked Spius yearlings (CWT and non-CWT years)
 
-# Below are the 6 steps:
+# Below are the 12 steps:
 
 # Calculate Return index factors ----------
-#calulate average return index for each brood year and return age (mean across CWT tag codes)
-CWT_average <- CWT_all %>% group_by(brood_year, return_age, `Spawning Year`, release_stage) %>% summarise(mean_return_index = mean(return_index, na.rm=TRUE), sd_return_index = sd(return_index, na.rm=TRUE))
-
 # Get return index factors for life stages 
 # make release stage into a column with return index as values
-return_index_factors <- spread(CWT_average[ ,-grep("sd_return_index", names(CWT_average))], key=release_stage, value=mean_return_index)
+return_index_factors <- spread(CWT_all[ ,!names(CWT_all) %in% c("sum_tagged_adclipped", "sum_CWT_returns")], key=release_stage, value=return_index)
+##### 
+# THIS PART NEEDS TRANSFORMATION / BACKTRANSFORMATION FOR 0 DENOMINATORS
 return_index_factors$F_Y <- return_index_factors$`F` / return_index_factors$Y # get return index factor for step a.
 return_index_factors$S_F <- return_index_factors$S / return_index_factors$`F` # get return index factor for step b.
 return_index_factors$S_Y <- return_index_factors$S / return_index_factors$Y # get return index factor for step c.
 # remove rows with return index factors that are all NA
-return_index_factors <- return_index_factors[!apply(is.na(return_index_factors[ ,8:10]), 1, all),]
+return_index_factors <- return_index_factors[!apply(is.na(return_index_factors[ ,7:9]), 1, all),]
 # remove return index columns for stages
 return_index_factors <- return_index_factors[ , !names(return_index_factors) %in% c("E", "F", "S", "Y")]
 # convert back to long format
@@ -229,9 +247,9 @@ ggplot(adults_from_unmarked_fry, aes(y=count, x=brood_year, colour=factor(return
   geom_point()
 
 # Examine data -----------
-ggplot(CWT_all[CWT_all$release_stage %in% c("F", "S", "Y"),], aes(y=return_index, x=brood_year, colour=factor(return_age), fill=factor(return_age))) +
-  stat_summary(fun.y="mean", na.rm=TRUE, geom="point", size=5, shape=45, stroke=5) +
-  geom_point(shape=1, size=2) +
+ggplot(CWT_all[CWT_all$stock_location_name=="S-Nicola R",], aes(y=return_index, x=brood_year, colour=factor(return_age), fill=factor(return_age))) +
+  #stat_summary(fun.y="mean", na.rm=TRUE, geom="point", size=5, shape=45, stroke=5) +
+  geom_point(shape=1,stroke=2, size=3) +
   facet_grid(release_stage~., scales="free_y") +
   theme_bw()
 ggsave("./figures/fig_return_index_by_release_stage_broodyear_age.png", plot=last_plot(), width=6, height=4)
@@ -283,7 +301,3 @@ ggplot(CWT_all[CWT_all$release_stage %in% "Y",], aes(y=avg_weight, x=brood_year,
   #geom_text(aes(label=tagged_adclipped)) +
   theme_bw() +
   theme(axis.text.x = element_text(angle=90, vjust=0.5))
-
-# Note that right now I am taking the average of the return indexes, (approach 1). But I could sum the returns and divide by the sum of releases to get the return index (approach 2).
-(1/10 + 2/20 + 30/200 + 10/50 + 1/20)/5 # approach 1
-(1+2+30+10+1) / (10+20+200+50+20) #approach 2
