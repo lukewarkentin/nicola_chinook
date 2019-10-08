@@ -153,7 +153,6 @@ CWT_all <- CWT_all[!(CWT_all$stock_location_name=="S-Coldwater R" & is.na(CWT_al
 
 # 2. Untagged releases that have tagged releases in another stage, where those two stages 
 #     have paired tagged releases in another brood year
-#    
 
 # 3. Untagged releases that have tagged releases in another stock, where those two stages 
 #     have paired tagged releases in another brood year
@@ -199,7 +198,8 @@ master[case3,]
 ###########
 # Get estimated unmarked returns for case 1 ------------
 ###########
-master$unmarked_returns1 <- 0
+master$unmarked_returns1 <- 0 # new column for unmarked returns for case 1
+# Calculate unmarked returns by multiplying number of tagged unclipped releases by return index of same stage, brood year, stock
 master$unmarked_returns1[case1] <- round(master$sum_untagged_unclipped[case1] * master$return_index[case1],0)
 
 ###########
@@ -339,7 +339,7 @@ for(i in 1:nrow(master3)) {
         # return index factor    
         return_index_factors_stock[return_index_factors_stock$factor_release_stocks %in%
                                      check_overlap3_sum[check_overlap3_sum$brood_year==as.numeric(master3[i, "brood_year"]), "return_index_factor" ] & 
-                                     return_index_factors$return_age %in% 
+                                     return_index_factors_stock$return_age %in% 
                                      master3[i,"return_age"], "mean_return_index_factor"]  * 
         # return index for complementary release stage in same brood year
         master[ master$stock_location_name == check_overlap3_sum$stock_location_name.y[check_overlap3_sum$stock_location_name.x == master3$stock_location_name[i] & 
