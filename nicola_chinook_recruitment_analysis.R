@@ -49,13 +49,14 @@ d$recruits_per_spawner <- d$wild_recruits / d$total_spawners
 # Centre and standardize estimated ocean survival into anomaly
 d$ocean_surv_anomaly <- (d$smolt_age3_survival - mean(d$smolt_age3_survival))/sd(d$smolt_age3_survival)
 d$max_flow_fall_c <- (d$max_flow_fall - mean(d$max_flow_fall))/sd(d$max_flow_fall) # standardize the covariates
-d$mean_flow_aug_c <- (d$mean_flow_aug_rearing - mean(d$mean_flow_aug_rearing))/sd(d$mean_flow_aug_rearing) # standardize the covariates
+d$mean_flow_aug_rear_c <- (d$mean_flow_aug_rear - mean(d$mean_flow_aug_rear))/sd(d$mean_flow_aug_rear) # standardize the covariates
 # Extra flow variables
 d$mean_sep_oct_flow_c <- (d$mean_sep_oct_flow - mean(d$mean_sep_oct_flow))/sd(d$mean_sep_oct_flow) # standardize the covariates
-d$mean_jul_flow_c <- (d$mean_jul_flow - mean(d$mean_jul_flow))/sd(d$mean_jul_flow) # standardize the covariates
+d$mean_flow_aug_spawn_c <- (d$mean_flow_aug_spawn - mean(d$mean_flow_aug_spawn))/sd(d$mean_flow_aug_spawn) # standardize the covariates
 d$max_jan_feb_flow_c <- (d$max_jan_feb_flow - mean(d$max_jan_feb_flow))/sd(d$max_jan_feb_flow) # standardize the covariates
 # Proportion wild
 d$prop_wild_c <- (d$prop_wild - mean(d$prop_wild))/sd(d$prop_wild)
+
 # Visual checks
 
 # Plot recruits as a function of spawners
@@ -73,7 +74,7 @@ ggplot(d, aes(y=smolt_age3_survival, x=brood_year)) +
   theme_bw() +
   scale_x_continuous(breaks=seq(min(d$brood_year), max(d$brood_year), 1))
 
-ggplot(d, aes(y=mean_flow_aug_rearing, x=brood_year)) + 
+ggplot(d, aes(y=mean_flow_aug_rear, x=brood_year)) + 
   geom_line() + 
   geom_point() +
   theme_bw() +
@@ -98,7 +99,7 @@ ggplot(d, aes(y=max_flow_fall_c, x=brood_year)) +
   theme_bw() +
   scale_x_continuous(breaks=seq(min(d$brood_year), max(d$brood_year), 1))
 
-ggplot(d, aes(y=mean_flow_aug_c, x=brood_year)) + 
+ggplot(d, aes(y=mean_flow_aug_spawn_c, x=brood_year)) + 
   geom_line() + 
   geom_point() +
   theme_bw() +
@@ -253,7 +254,8 @@ dat4 <- list(
   SH = d$hatch_spawners,
   OSA = d$ocean_surv_anomaly,
   max_flow_fall = d$max_flow_fall_c,
-  mean_flow_aug = d$mean_flow_aug_c
+  mean_flow_aug_rear = d$mean_flow_aug_rear_c,
+  mean_flow_aug_spawn = d$mean_flow_aug_spawn_c
 )
 
 # inits for lognormal
@@ -308,6 +310,7 @@ inits4= rep(
          b1 = rnorm(1, mean=0, sd=0.1),
          b2 = rnorm(1, mean=0, sd=0.1),
          b3 = rnorm(1, mean=0, sd=0.1),
+         b4 = rnorm(1, mean=0, sd=0.1),
          tau =  runif(1, 0, 2),
          phi = runif(1, -0.99, 0.99),
          log_resid0 = rnorm(1, mean=0, sd = rgamma(1, shape=0.01, scale=0.01) * (1- runif(1, -0.99, 0.99)^2))
@@ -331,8 +334,8 @@ fit_ricker_3 <- stan( file = "ricker_nonlinear_lognormal_1.stan",
 
 # fit ricker with autocorrelation
 fit_ricker_4 <- stan( file = "ricker_linear_AR.stan", 
-                      data=dat4, chains=3, iter=3000, init=inits4, 
-                      cores=2, pars=c("alpha", "betaW", "betaH","b1", "b2", "b3", "tau", "phi", "log_resid0", "log_resid", "tau_red", "pp_R", "log_lik"))
+                      data=dat4, chains=3, iter=5000, init=inits4, 
+                      cores=2, pars=c("alpha", "betaW", "betaH","b1", "b2", "b3", "b4", "tau", "phi", "log_resid0", "log_resid", "tau_red", "pp_R", "log_lik"))
 
 # make output into data frame
 post <- as.data.frame(fit_ricker_1)
@@ -355,7 +358,7 @@ dev.off()
 # make output into data frame fit 4
 post4 <- as.data.frame(fit_ricker_4)
 png(filename="./figures/fig_estimates_CI_4.png", width=300, height=500)
-plot(fit_ricker_4, pars=c( "alpha", "betaW", "betaH","b1", "b2", "b3", "tau", "phi"))
+plot(fit_ricker_4, pars=c( "alpha", "betaW", "betaH","b1", "b2", "b3","b4", "tau", "phi"))
 dev.off()
 
 # Examine model - lognormal with sigma------------
@@ -371,7 +374,7 @@ plot(fit_ricker_1, pars=c("alpha", "beta", "b1", "b1","b2", "b3", "sigma"))
 # Traceplots
 traceplot(fit_ricker_1, pars=c("alpha", "beta", "b1", "b2", "b3", "sigma"))
 traceplot(fit_ricker_3, pars=c("alpha", "betaW", "betaH", "b1", "b2", "b3", "sigma"))
-traceplot(fit_ricker_4, pars=c("alpha", "betaW", "betaH","b1", "b2", "b3", "tau", "phi", "log_resid0"))
+traceplot(fit_ricker_4, pars=c("alpha", "betaW", "betaH","b1", "b2", "b3", "b4","tau", "phi", "log_resid0"))
 
 # Plot data with model, using last 100 posterior samples and each 26 lines of observed data -------
 png(filename = "./figures/fig_R~S_with_model_runs_lognormal.png", width=1000, height=800, pointsize = 25)
@@ -394,6 +397,7 @@ curve(mean(post$alpha) * x * exp(-mean(post$beta) * x +
 dev.off()
 
 # Look at posteriors
+post <- post4
 rethinking::dens(post$alpha)
 rethinking::dens(post$beta)
 rethinking::dens(post$b1)

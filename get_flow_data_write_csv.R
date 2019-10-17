@@ -1,6 +1,5 @@
 # Get flow data for Nicola Chinook analysis
 rm(list=ls())
-setwd("D:/22_masters/100.002_Nicola-Chinook-cohorts/10_R/nicola_chinook")
 library(tidyhydat)
 library(dplyr)
 library(lubridate)
@@ -20,7 +19,7 @@ mean_aug_flow_nicola <- hy_daily_flows(station_number= "08LG006") %>%
   mutate(year = year(Date), month= month(Date)) %>% 
   filter(month==8, Parameter=="Flow") %>%
   group_by(year) %>%
-  summarise(mean_flow_aug_rearing = mean(Value))
+  summarise(mean_flow_aug_rear = mean(Value))
 # shift aug flow data so that it is for the summer of rearing for each brood year
 # so have the aug flow for the summer of 2015 be on brood year 2014 (so 2015 is now 2014)
 mean_aug_flow_nicola$year <- mean_aug_flow_nicola$year - 1
@@ -34,13 +33,13 @@ mean_sep_oct_flow_nicola <- hy_daily_flows(station_number= "08LG006") %>%
   summarise(mean_sep_oct_flow = mean(Value))
 d <- left_join(d, mean_sep_oct_flow_nicola, by="year")
 
-# Get average July flow for spawning year
-mean_jul_flow_nicola <- hy_daily_flows(station_number= "08LG006") %>% 
+# Get average aug flow for spawning year
+mean_aug_flow_nicola <- hy_daily_flows(station_number= "08LG006") %>% 
   mutate(year = year(Date), month= month(Date)) %>% 
-  filter(month ==7, Parameter=="Flow") %>%
+  filter(month ==8, Parameter=="Flow") %>%
   group_by(year) %>%
-  summarise(mean_jul_flow = mean(Value))
-d <- left_join(d, mean_jul_flow_nicola, by="year")
+  summarise(mean_flow_aug_spawn = mean(Value))
+d <- left_join(d, mean_aug_flow_nicola, by="year")
 
 # Get max Jan-Feb flow for rearing year
 max_jan_feb_flow_nicola <- hy_daily_flows(station_number= "08LG006") %>% 
@@ -58,7 +57,7 @@ d <- left_join(d, max_jan_feb_flow_nicola, by="year")
 write.csv(d, "./data/nicola_yearly_flows.csv", row.names=FALSE)
 
 
-#get full time series of flow data for Nicola at Spences Bridge and SPius and COldwater
+#get full time series of flow data for Nicola at Spences Bridge and Spius and COldwater
 fd <- hy_daily_flows(station_number= c("08LG006", 
                      # "08LG008", # SPIUS CREEK NEAR CANFORD # Missing 2009-2010
                      # "08LG010", # COLDWATER RIVER AT MERRITT) # Missing 1996-2004
