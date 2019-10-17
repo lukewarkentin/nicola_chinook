@@ -376,7 +376,8 @@ escapement1$Wild_Spawners <- escapement1$Corrected_Unclipped_Spawners - escapeme
 
 # Get total spawners (wild + hatchery) for each run year
 escapement1$total_spawners <- escapement1$Corrected_Unclipped_Spawners + escapement1$Clipped_Spawners
-
+# Get tru hatchery spawners
+escapement1$true_hatchery_spawners <- escapement1$total_spawners - escapement1$Wild_Spawners
 
 # Account for exploitation rate
 # Read in exploitation rate data
@@ -401,23 +402,59 @@ exploit_list <- lapply(exploit_list, function(i) {
 # combine the three data frames                       
 exploit <- exploit_list %>% purrr::reduce(full_join, by=c("brood_year", "return_age"))
 # remove brood year > 2013 because we don't have full data
-exploit <- exploit[!exploit$brood_year>2013, ]
+#exploit <- exploit[!exploit$brood_year>2013, ]
+
+# Try a different approach - get ratios of wild to CWT fish for each cohort
+# First check the age distribution for hatchery and wild fish
+escapement1 %>% 
+  group_by(brood_year, return_age) %>%  
+  summarise(n = sum(Clipped_Spawners, unmarked_hatchery_returns)) %>%
+  mutate(freq = n / sum(n)) %>% 
+  ggplot(data=., aes(y=freq, x=brood_year, fill=factor(return_age))) +
+  geom_col()
+
+escapement1 %>% 
+  group_by(brood_year, return_age) %>%  
+  summarise(n = sum(Wild_Spawners)) %>%
+  mutate(freq = n / sum(n)) %>% 
+  ggplot(data=., aes(y=freq, x=brood_year, fill=factor(return_age))) +
+  geom_col()
+
 # For age 3 and 5 returns, use average of other years for NA years
-exploit_sum <- exploit %>% group_by(return_age) %>% summarise(mean_exploitation_rate=mean(exploitation_rate, na.rm=TRUE)) # make summary data frame
-for(i in 1:nrow(exploit)) {
-  exploit$exploitation_rate[i] <- ifelse(is.na(exploit$exploitation_rate[i]), 
-                                         exploit_sum[exploit_sum$return_age ==exploit$return_age[i], "mean_exploitation_rate"],
-                                         exploit$exploitation_rate[i])
+# Get averages of years that don't have NA or 1.0 for exploitation rate
+ exploit_sum <- exploit %>% filter(!is.na(exploitation_rate), !exploitation_rate==1) %>% 
+   group_by(return_age) %>% summarise(mean_exploitation_rate=mean(exploitation_rate, na.rm=TRUE)) # make summary data frame
+ exploit1 <- exploit
+ for(i in 1:nrow(exploit1)) { 
+   exploit1$exploitation_rate[i] <- unlist(ifelse(exploit1$sum_TMAEQ_tot[i]==0 & exploit1$sum_escapement[i]==0, 
+                                         exploit_sum[exploit_sum$return_age ==exploit1$return_age[i], "mean_exploitation_rate"],
+                                         exploit1$exploitation_rate[i]
+   ))
 }
-which(is.na(exploit$exploitation_rate))  # check
-# Replace 100% exploitation rate with 95%, otherwise expansion won't work - CHECK WITH CHUCK ON THIS
-for(i in 1:nrow(exploit)) {
-  exploit$exploitation_rate[i] <- ifelse(exploit$exploitation_rate[i]==1, 
-                                         0.95,
-                                         exploit$exploitation_rate[i])
+which(is.na(exploit1$exploitation_rate))  # check
+str(exploit1)
+
+# For years with CWT recoveries in the fishery but not in escapement, use expansion factor between wild and CWT fish of the other life stages
+
+
+# Replace 100% exploitation rate exploitation rate from expansion factor
+for(i in 1:nrow(exploit1)) { 
+  exploit1$exploitation_rate[i] <- unlist(ifelse(exploit1$sum_TMAEQ_tot[i]>0 & exploit1$sum_escapement[i]==0, # does row have fisheries mortality but no escapement for CWT
+      exploit1$sum_TMAEQ_tot[i] *  # if true, multiply CWT fisheries mort for age 3 by
+        sum(escapement1$Wild_Spawners[escapement1$brood_year==exploit1$brood_year[i] & escapement1$return_age %in% c(4,5)]) / #expansion factor to get wild fishery mortality, which is wild escapement of ages 4 + 5 divided by
+              sum(escapement1$true_hatchery_spawners[escapement1$brood_year==exploit1$brood_year[i] & escapement1$return_age %in% c(4,5)]) / #hatchery escapement for age 4 and 5
+           
+        # this is to get estimated wild fishery mortality
+        (exploit1$sum_TMAEQ_tot[i] *  # if true, multiply CWT fisheries mort for age 3 by
+        sum(escapement1$Wild_Spawners[escapement1$brood_year==exploit1$brood_year[i] & escapement1$return_age %in% c(4,5)]) / #expansion factor to get wild fishery mortality, which is wild escapement of ages 4 + 5 divided by
+        sum(escapement1$true_hatchery_spawners[escapement1$brood_year==exploit1$brood_year[i] & escapement1$return_age %in% c(4,5)]) + #then divide by sum of wild fishery mortality and wild escapement to get exploitation rate
+          escapement1$Wild_Spawners[escapement1$brood_year==exploit1$brood_year[i] & escapement1$return_age==3]),       # and add wild spawners to wild fishery mortality
+                                                 
+      exploit1$exploitation_rate[i] # if false, just use existing exploitation rate
+  ))
 }
-exploit$exploitation_rate <- as.numeric(exploit$exploitation_rate)
-str(exploit)
+
+str(exploit1)
 # visual check
 # ggplot(exploit, aes(y=exploitation_rate, x=brood_year, colour=return_age)) +
 #   geom_point(aes(size=sum_escapement)) +
@@ -427,7 +464,7 @@ str(exploit)
 #   theme_bw()
 
 # Apply exploitation to unclipped escapement
-escapement2 <- merge(escapement1, exploit[,c(1,2,5)], by=c("return_age", "brood_year"), all.x=TRUE)
+escapement2 <- merge(escapement1, exploit1[,c(1,2,5)], by=c("return_age", "brood_year"), all.x=TRUE)
 # calculate recruits from escapement and exploitation rate
 escapement2$recruits <- round(escapement2$Wild_Spawners / (1 - escapement2$exploitation_rate),0)
 # remove NA rows, mostly age 2 fish
@@ -436,7 +473,7 @@ escapement2 <- escapement2[!is.na(escapement2$recruits), ]
 # escapement2 <- escapement2[escapement2$brood_year > 1991 & escapement2$brood_year < 2014, ]
 
 # Write csv of brood table 
-write.csv(escapement2[,c("return_age", "run_year", "brood_year", "recruits", "total_spawners")], "./data/nicola_brood_table.csv", row.names=FALSE)
+write.csv(escapement2[,c("return_age", "run_year", "brood_year", "recruits", "total_spawners", "Wild_Spawners")], "./data/nicola_brood_table.csv", row.names=FALSE)
 
 ################################
 ############# FIGURES ##########

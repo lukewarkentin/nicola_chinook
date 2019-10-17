@@ -77,6 +77,16 @@ complete_aug <- names(complete_aug)
 # Get vector of years with complete Oct 1- Dec 31 records (fall)
 complete_fall <- apply(month_tab[,10:12], 1, function(x) all(x>29))
 complete_fall <- names(complete_fall[complete_fall==TRUE])
+# just get years with complete aug and fall periods
+d1 <- d[d$year %in% complete_aug & d$year %in% complete_fall, ]
+# get only rows with no NAs
+d2 <-  d1[which(apply(d1, 1, function(i) all(!is.na(i)))),]
+# Plot correlation between max fall flow and aug flow in rearing, for each brood year
+png("./figures/fig_correlation_fall_aug_flows.png",  res=100)
+plot(d2$max_flow_fall, d2$mean_flow_aug_rearing, ylab="Mean fall flow, rearing summer (m3/s)", xlab="Max fall flow, spawning (m3/s)")
+points(d2$max_flow_fall[d2$year>=1995 & d2$year<=2013], d2$mean_flow_aug_rearing[d2$year>=1995 & d2$year<=2013], col="red")
+dev.off()
+cor(d2$max_flow_fall, d2$mean_flow_aug_rearing)
 
 #plot time series
 library(ggplot2)
