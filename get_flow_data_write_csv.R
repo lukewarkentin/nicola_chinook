@@ -57,19 +57,10 @@ d <- left_join(d, max_jan_feb_flow_nicola, by="year")
 
 write.csv(d, "./data/nicola_yearly_flows.csv", row.names=FALSE)
 
-
-#get full time series of flow data for Nicola at Spences Bridge and Spius and COldwater
-fd <- hy_daily_flows(station_number="08LG006" )
-                     # "08LG008", # SPIUS CREEK NEAR CANFORD # Missing 2009-2010
-                     # "08LG010", # COLDWATER RIVER AT MERRITT) # Missing 1996-2004
-                     # "08LG048" # COLDWATER RIVER NEAR BROOKMERE 
-
-fd <- merge(fd, allstations[names(allstations) %in% c("STATION_NAME", "STATION_NUMBER")], by="STATION_NUMBER")
-# Add year, year-day, and month columns
-fd$year <- year(fd$Date)
-fd$yday <- yday(fd$Date)
-fd$month <- month(fd$Date, abbr=TRUE, label=TRUE)
+# Get all the flow data
+fd <- hy_daily_flows(station_number= "08LG006")
 fd$water_year <- get_waterYear(fd$Date)
+fd$month <- month(fd$Date)
 
 # get observations by month
 month_tab <- table(fd$year, fd$month)
@@ -119,29 +110,20 @@ fig_fall_flows <- ggplot(fd_complete_fall[ fd_complete_fall$month %in% c(10:12),
 fig_fall_flows
 
 # look at hydrograph for years between 1992 - 2018, ignore freshet
-mon_in <- month(c(1:2,7:12), abbr=TRUE, label=TRUE)
-fd %>% filter(
-  #month %in% mon_in & 
-    water_year %in% c(1992:1994, 2002:2004, 2010:2012)) %>%
+mon_in <-c(11, 12, 1, 2)
+mon_in
+fig_winter_flow_ice <- fd %>% filter(
+    month %in% mon_in & 
+    water_year %in% c(1992:2014)) %>%
   ggplot(., aes(y=Value, x=Date, colour=Symbol)) +
   geom_point() +
-  scale_y_log10() +
-  facet_wrap(~water_year, ncol=3, strip.position = "top", scales="free_x") +
-  #scale_x_date(date_breaks="1 month", date_labels = "%e %b %y") +
+  #scale_y_log10() +
+  facet_wrap(~ water_year, strip.position = "left", scales="free_x") +
+  scale_x_date(date_breaks="1 month", date_labels = "%e %b %y") +
   theme_bw() +
-  theme(axis.text.x = element_text(angle=90, vjust=0.5))
+  theme(axis.text.x = element_text())
+fig_winter_flow_ice 
 
-# Plot number of days ice over each winter
-ice_tab <- as.data.frame(table(fd$water_year, fd$Symbol)[,"B"])
-str(ice_tab)
-ice_tab$year <- as.integer(row.names(ice_tab))
-ice_tab$brood_year <- ice_tab$year - 1
-names(ice_tab)[1] <- "ice_days"
-
-ggplot(ice_tab[ice_tab$Var1 >= 1992 & ice_tab$Var2=="B", ], aes(y=Freq, x=Var1)) +
-  geom_point() 
-str(ice_tab)
-names()
 # Look at winter flows for years 1990 to 2015
 fig_late_winter_flows <- fd %>% filter(month %in% c("Jan", "Feb", "Mar") & year %in% c(1995:2014)) %>%
   ggplot(., aes(y=Value, x=Date, colour=Symbol)) +

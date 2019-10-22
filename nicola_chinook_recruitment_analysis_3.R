@@ -18,7 +18,6 @@ rm(list=ls())
 
 # Data -------------
 brood <- read.csv("./data/nicola_brood_table.csv") # read in cohort data table with hatchery data
-str(brood)
 # manipulate to get recruits
 spawners <- brood %>% group_by(run_year) %>% summarise(total_spawners=sum(total_spawners), wild_spawners=sum(Wild_Spawners))
 recruits <- brood %>% group_by(brood_year) %>% summarise(wild_recruits=sum(recruits))
@@ -28,51 +27,64 @@ sd$hatch_spawners <- sd$total_spawners - sd$wild_spawners
 
 # Read in calibrated peak count estimates (aerial counts? Check with Chuck Parken) from 1992 to 1994 with CV, and variance and CV for mark-recapture estimates from 1995-2018
 spawn_sup <- read.csv("./data/mark_recap_and_peak_count_estimates_with_variance_and_CV_Nicola.csv", strip.white = TRUE)
-str(spawn_sup)
 names(spawn_sup) <- c("spawning_year", "total_spawners", "variance", "CV")
 # get total spawners for brood years 1992-1994, which was before mark recapture, into brood table
 sd[is.na(sd$total_spawners) & sd$brood_year %in% 1992:1994, "total_spawners" ] <- spawn_sup[spawn_sup$spawning_year %in% 1992:1994, "total_spawners"]
 # merge to get variance and CV into brood table
 sd <- merge(sd, spawn_sup[,c("spawning_year","variance", "CV")], by.x="brood_year", by.y="spawning_year", all.x=TRUE)
+# add recruits per spawner variable
+sd$recruits_per_spawner <- sd$wild_recruits / sd$total_spawners
 
 # Read in flow data --------
 fd <- read.csv("./data/nicola_yearly_flows_all_months.csv") # read in flow data 
-str(fd)
-# centre flow variables
-fd_scale <- fd
-fd_scale[ ,2:ncol(fd)] <- scale(fd[ ,2:ncol(fd_scale)])
-# check
-round(colMeans(fd_scale, na.rm=TRUE),1)
-apply(fd_scale, 2, sd, na.rm=TRUE)
 
 # Add flow variables
-d <- left_join(sd, fd_scale, by=c("brood_year"="year"))
+d <- left_join(sd, fd, by=c("brood_year"="year"), all.x=TRUE)
 
 # Add smolt to age 3 survival
 od <- read_excel("./data/Nicola Smolt to Age3 Survival (2019 CWT analysis).xlsx", skip=2)
-str(od) 
 names(od) <- c("brood_year", "smolt_age3_survival")
 # Merge with other data
 d <- merge(d, od, by="brood_year", all.x=TRUE)
 
-# Remove rows with incomplete recruits
+# Remove rows with incomplete recruits for Stan analysis
 d <- d[d$brood_year>=1992 & d$brood_year<=2013, ]
 
-# add recruits per spawner variable
-d$recruits_per_spawner <- d$wild_recruits / d$total_spawners
+# Centre and standardize all predictor variables
+d_unscaled <- d # make unscaled data frame for graphing raw predictor variables
+names(d)[10]
+d[ ,10:ncol(d)] <- as.numeric(scale(d[ ,10:ncol(d)])) # centre and standardize all predictor variables
+# check
+round(colMeans(d, na.rm=TRUE),1)
+apply(d, 2, sd, na.rm=TRUE)
 
-# Centre and standardize covariates
-# Centre and standardize estimated ocean survival into anomaly
-d$smolt_age3_survival_c <- as.numeric(scale(d$smolt_age3_survival))
-# Proportion wild
-d$prop_wild_c <- as.numeric(scale(d$prop_wild))
+# Normalize predictor variables for traffic light plots
+# Normalize function
+normalize <- function(x) {
+  return ((x - min(x)) / (max(x) - min(x)))
+}
+# apply to each column
+d_norm<- d_unscaled
+d_norm[,10:ncol(d_norm)] <- apply(d_norm[,10:ncol(d_norm)], 2, normalize)
+# reverse max flow to get colour right
+d_norm$sep_dec_max_flow_rev <- 1 - d_norm$sep_dec_max_flow 
 
-# Add ice days
-d <- merge(d, ice_tab[,c(1,3)], by="brood_year")
-d$ice_days_c <- as.numeric(scale(d$ice_days))
-hist(d$ice_days_c)
+
 # # Visual checks
-# 
+# Check Correlation
+# make vector of predictor variables to check correlation
+names(d_unscaled)
+pred_plot <- names(d_unscaled)[c(17,24,25,33, 42)]
+pred_plot
+png("./figures/fig_correlation_predictors.png", height=800, width=1200, pointsize=30)
+plot(d_unscaled[ , pred_plot])
+dev.off()
+
+# Get correlations 
+d_cor <- cor(d_unscaled[ , pred_plot], use="complete.obs" )
+d_cor
+write.csv(d_cor, "correlation.csv")
+
 # # Plot recruits as a function of spawners
 # ggplot(d, aes(y=wild_recruits, x=total_spawners)) + 
 #   geom_point() + 
@@ -145,10 +157,7 @@ hist(d$ice_days_c)
 #   geom_text(aes(label=brood_year))
 # pairs(data=d, ~ mean_flow_aug_c + max_flow_fall_c + ocean_surv_anomaly, lower.panel=NULL) # nothing seems that correlated
  # 
-plot(d[ , grep("mean", names(d))])
-# # Get correlations 
-d_cor <- cor(d[ , grep("mean", names(d))])
-write.csv(d_cor, "correlation.csv")
+
 # cov(d[which(apply(d, 1, function(i) all(!is.na(i)))), c("max_flow_fall", "mean_flow_aug_rearing", "max_jan_feb_flow", "smolt_age3_survival")])
 # #nothing seems that correlated
 # 
@@ -206,11 +215,12 @@ dat <- list(
   N = nrow(d),
   log_R = log(d$wild_recruits),
   S = d$total_spawners, 
-  ocean_surv = d$smolt_age3_survival_c,
+  ocean_surv = d$smolt_age3_survival,
   aug_mean_flow = d$aug_mean_flow,
-  ice_days = d$ice_days_c,
   sep_dec_max_flow = d$sep_dec_max_flow,
-  aug_mean_flow_rear = d$aug_mean_flow_rear
+  jan_feb_max_flow = d$jan_feb_max_flow,
+  aug_mean_flow_rear = d$aug_mean_flow_rear,
+  ice_days = d$ice_days
 )
 
 # inits for autocorrelation
@@ -222,8 +232,9 @@ inits= rep(
          b1 = rnorm(1, mean=0, sd=0.1),
          b2 = rnorm(1, mean=0, sd=0.1),
          b3 = rnorm(1, mean=0, sd=0.1),
-         b4 = rnorm(1, mean=0, sd=0.1),
+         #b4 = rnorm(1, mean=0, sd=0.1),
          b5 = rnorm(1, mean=0, sd=0.1),
+         b6 = rnorm(1, mean=0, sd=0.1),
          tau =  runif(1, 0, 2),
          phi = runif(1, -0.99, 0.99),
          log_resid0 = rnorm(1, mean=0, sd = rgamma(1, shape=0.01, scale=0.01) * (1- runif(1, -0.99, 0.99)^2))
@@ -235,8 +246,9 @@ inits= rep(
 pars_track <- c("alpha", "beta","b1",
                 "b2", 
                 "b3", 
-                "b4", 
-                "b5", "tau", "phi", "log_resid0", "log_resid", "tau_red", "pp_R")
+                #"b4", 
+                "b5", 
+                "b6", "tau", "phi", "log_resid0", "log_resid", "tau_red", "pp_R")
                 #,"log_lik")
 # Fit stan model
 fit_ricker <- stan( file = "ricker_linear_AR_3.stan", 
@@ -251,17 +263,18 @@ post <- as.data.frame(fit_ricker)
 pars_graph <- c("alpha", "beta","b1", 
                 "b2", 
                 "b3", 
-                "b4", 
-                "b5", "tau", "phi", "log_resid0")
+                #"b4", 
+                "b5", 
+                "b6", "tau", "phi", "log_resid0")
 
 # Plot estimates and CIs
-png(filename="./figures/fig_estimates_CI.png", width=300, height=500)
+png(filename="./figures/fig_estimates_CI.png", width=700, height=500)
 plot(fit_ricker, pars=pars_graph)
 dev.off()
 
 # Plot estimates and CIs for covariate effects only
 png(filename="./figures/fig_estimates_CI_covariates_only.png", width=300, height=500)
-plot(fit_ricker, pars=pars_graph[3:7])
+plot(fit_ricker, pars=pars_graph[3:8])
 dev.off()
 
 # Get model summary
@@ -415,46 +428,27 @@ dev.off()
 # Look at residuals
 # histograms
 png("./figures/fig_resid_hist.png",  width=1200, height=800, pointsize = 30)
-hist(d$wild_recruits - mn_ppd) # some right skewed ness
+hist(d$wild_recruits - mn_ppd, xlab="Residuals (observed - predicted)") # some right skewed ness
 dev.off()
 
 # Residuals ~ observed
 png("./figures/fig_resid~obs.png",  width=1200, height=800, pointsize = 30)
-plot(d$wild_recruits - mn_ppd ~ d$wild_recruits) 
+plot(d$wild_recruits - mn_ppd ~ d$wild_recruits, ylab="Residuals", xlab="Observed recruits") 
 dev.off()
 
 # Residuals ~ predicted
 png("./figures/fig_resid_pred.png",  width=1200, height=800, pointsize = 30)
-plot(d$wild_recruits - mn_ppd ~ mn_ppd) 
+plot(d$wild_recruits - mn_ppd ~ mn_ppd, ylab="Residuals", xlab="Predicted") 
 dev.off()
 
 # Residuals ~ year
 png("./figures/fig_resid_year.png",  width=1200, height=800, pointsize = 30)
-plot(d$wild_recruits - mn_ppd ~ d$brood_year) 
+plot(d$wild_recruits - mn_ppd ~ d$brood_year, ylab="Residuals", xlab="Brood year") 
 dev.off()
 
 
 # # Slot machine figures - Recruits and spawners with covariates --------------
 
-# normalize the un-centred data
-d1 <- left_join(sd, fd, by=c("brood_year"="year")) # join spawner data and uncentred flow data
-# Add smolt to age 3 survival
-d1 <- merge(d1, od, by="brood_year", all.x=TRUE)
-# Remove rows with incomplete recruits
-d1 <- d1[d1$brood_year>=1992 & d1$brood_year<=2013, ]
-# add recruits per spawner variable
-d1$recruits_per_spawner <- d1$wild_recruits / d1$total_spawners
-d1 <- merge(d1, ice_tab[, c(1,3)], by="brood_year", all.x=TRUE)
-
-# Normalize function
-normalize <- function(x) {
-  return ((x - min(x)) / (max(x) - min(x)))
-}
-# apply to each column
-d_norm<- d1
-d_norm[,9:38] <- apply(d1[,9:38], 2, normalize)
-# reverse max flow to get colour right
-d_norm$sep_dec_max_flow_rev <- 1 - d_norm$sep_dec_max_flow 
 
 # #summarise d wide to long format
 d1_sum <- d_norm[ ,c("smolt_age3_survival", "aug_mean_flow", "sep_dec_max_flow_rev", "aug_mean_flow_rear", "brood_year", "recruits_per_spawner", "wild_recruits", "prop_wild", "total_spawners")] %>%
@@ -493,6 +487,3 @@ fig_recruits_spawners_covariates <-
   theme_bw()
 fig_recruits_spawners_covariates
 ggsave("./figures/fig_recruits_spawners_covariates.png", fig_recruits_spawners_covariates, width=12, height=8)
-
-# Check correlation of covariates
-pairs(~ aug_mean_flow+ sep_dec_max_flow+ aug_mean_flow_rear+  smolt_age3_survival + ice_days, data=d1, lower.panel=NULL)
