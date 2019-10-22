@@ -125,15 +125,16 @@ d$prop_wild_c <- as.numeric(scale(d$prop_wild))
 # ggplot(d, aes(y=wild_recruits, x=total_spawners, size=prop_wild)) + 
 #   geom_point()
 # 
-# # check correlatoin of covariates
+ # check correlatoin of covariates
 # ggplot(d, aes(y=mean_flow_aug_c, x=max_flow_fall_c)) +
 #   geom_point() +
 #   geom_text(aes(label=brood_year))
 # pairs(data=d, ~ mean_flow_aug_c + max_flow_fall_c + ocean_surv_anomaly, lower.panel=NULL) # nothing seems that correlated
 # pairs(data=d, ~ mean_flow_aug_c + max_flow_fall_c + mean_jul_flow_c + mean_sep_oct_flow_c + max_jan_feb_flow_c + ocean_surv_anomaly) # 
-# plot(d[, c("max_flow_fall", "mean_flow_aug_rearing", "max_jan_feb_flow", "smolt_age3_survival", "prop_wild")])
+plot(d[ , grep("mean", names(d))])
 # # Get correlations 
-# cor(d[which(apply(d, 1, function(i) all(!is.na(i)))), c("max_flow_fall", "mean_flow_aug_rearing", "max_jan_feb_flow", "smolt_age3_survival")])
+d_cor <- cor(d[ , grep("mean", names(d))])
+write.csv(d_cor, "correlation.csv")
 # cov(d[which(apply(d, 1, function(i) all(!is.na(i)))), c("max_flow_fall", "mean_flow_aug_rearing", "max_jan_feb_flow", "smolt_age3_survival")])
 # #nothing seems that correlated
 # 
@@ -225,21 +226,21 @@ dat <- list(
   #apr_mean_flow = d$apr_mean_flow,
   #may_mean_flow = d$may_mean_flow,
   #jun_mean_flow = d$jun_mean_flow,
-  jul_mean_flow = d$jul_mean_flow,
+  #jul_mean_flow = d$jul_mean_flow,
   aug_mean_flow = d$aug_mean_flow,
-  sep_mean_flow = d$sep_mean_flow,
+  #sep_mean_flow = d$sep_mean_flow,
   oct_mean_flow = d$oct_mean_flow,
   nov_mean_flow = d$nov_mean_flow,
   dec_mean_flow = d$dec_mean_flow,
-  jan_mean_flow_rear = d$jan_mean_flow_rear,
-  feb_mean_flow_rear = d$feb_mean_flow_rear,
-  mar_mean_flow_rear = d$mar_mean_flow_rear,
-  apr_mean_flow_rear = d$apr_mean_flow_rear,
+  #jan_mean_flow_rear = d$jan_mean_flow_rear,
+  #feb_mean_flow_rear = d$feb_mean_flow_rear,
+  #mar_mean_flow_rear = d$mar_mean_flow_rear,
+  #apr_mean_flow_rear = d$apr_mean_flow_rear,
   may_mean_flow_rear = d$may_mean_flow_rear,
-  jun_mean_flow_rear = d$jun_mean_flow_rear,
-  jul_mean_flow_rear = d$jul_mean_flow_rear,
+  #jun_mean_flow_rear = d$jun_mean_flow_rear,
+  #jul_mean_flow_rear = d$jul_mean_flow_rear,
   aug_mean_flow_rear = d$aug_mean_flow_rear,
-  sep_mean_flow_rear = d$sep_mean_flow_rear,
+  #sep_mean_flow_rear = d$sep_mean_flow_rear,
   oct_mean_flow_rear = d$oct_mean_flow_rear,
   nov_mean_flow_rear = d$nov_mean_flow_rear,
   dec_mean_flow_rear = d$dec_mean_flow_rear
@@ -253,21 +254,21 @@ inits= rep(
          betaW = rnorm(1, 0.0002, 0.0001),
          betaH = rnorm(1, 0.0002, 0.0001),
          b1 = rnorm(1, mean=0, sd=0.1),
-         b2 = rnorm(1, mean=0, sd=0.1),
+         #b2 = rnorm(1, mean=0, sd=0.1),
          b3 = rnorm(1, mean=0, sd=0.1),
-         b4 = rnorm(1, mean=0, sd=0.1),
+         #b4 = rnorm(1, mean=0, sd=0.1),
          b5 = rnorm(1, mean=0, sd=0.1),
          b6 = rnorm(1, mean=0, sd=0.1),
          b7 = rnorm(1, mean=0, sd=0.1),
-         b8 = rnorm(1, mean=0, sd=0.1),
-         b9 = rnorm(1, mean=0, sd=0.1),
-         b10 = rnorm(1, mean=0, sd=0.1),
-         b11 = rnorm(1, mean=0, sd=0.1),
+         #b8 = rnorm(1, mean=0, sd=0.1),
+         #b9 = rnorm(1, mean=0, sd=0.1),
+         #b10 = rnorm(1, mean=0, sd=0.1),
+         #b11 = rnorm(1, mean=0, sd=0.1),
          b12 = rnorm(1, mean=0, sd=0.1),
-         b13 = rnorm(1, mean=0, sd=0.1),
-         b14 = rnorm(1, mean=0, sd=0.1),
+         #b13 = rnorm(1, mean=0, sd=0.1),
+         #b14 = rnorm(1, mean=0, sd=0.1),
          b15 = rnorm(1, mean=0, sd=0.1),
-         b16 = rnorm(1, mean=0, sd=0.1),
+         #b16 = rnorm(1, mean=0, sd=0.1),
          b17 = rnorm(1, mean=0, sd=0.1),
          b18 = rnorm(1, mean=0, sd=0.1),
          b19 = rnorm(1, mean=0, sd=0.1),
@@ -279,27 +280,56 @@ inits= rep(
 
 # fit ricker with autocorrelation
 # parameters for model 
-pars_track <- c("alpha", "betaW", "betaH","b1", "b2", "b3", "b4", "b5", "b6", "b7", "b8","b9", "b10", "b11", "b12","b13", "b14", "b15", "b16","b17", "b18", "b19","tau", "phi", "log_resid0", "log_resid", "tau_red", "pp_R", "log_lik")
+pars_track <- c("alpha", "betaW", "betaH","b1",
+                #"b2", 
+                "b3", 
+                #"b4", 
+                "b5", "b6", "b7", 
+                #"b8",
+                #"b9", 
+                #"b10", 
+                #"b11", 
+                "b12",
+                #"b13", 
+                #"b14", 
+                "b15", 
+                #"b16",
+                "b17", "b18", "b19","tau", "phi", "log_resid0", "log_resid", "tau_red", "pp_R")
+                #,"log_lik")
 fit_ricker <- stan( file = "ricker_linear_AR_all_months.stan", 
-                      data=dat, chains=3, iter=5000, init=inits, 
+                      data=dat, chains=3, iter=5000, init=inits, control=list(adapt_delta=0.9),
                       cores=2, pars=pars_track)
 
 # make output into data frame
 post <- as.data.frame(fit_ricker)
 
 # parameters to graph
-pars_graph <- c("alpha", "betaW", "betaH","b1", "b2", "b3", "b4", "b5", "b6", "b7", "b8","b9", "b10", "b11", "b12","b13", "b14", "b15", "b16","b17", "b18", "b19","tau", "phi", "log_resid0")
+pars_graph <- c("alpha", "betaW", "betaH","b1", 
+                #"b2", 
+                "b3", 
+                #"b4", 
+                "b5", "b6", "b7", 
+                #"b8",
+                #"b9", 
+                #"b10", 
+                #"b11", 
+                "b12",
+                #"b13", 
+                #"b14", 
+                "b15", 
+                #"b16",
+                "b17", "b18", "b19","tau", "phi", "log_resid0")
 
 # Plot estimates and CIs
 #png(filename="./figures/fig_estimates_CI_4.png", width=300, height=500)
-plot(fit_ricker_4, pars=pars_graph)
+plot(fit_ricker, pars=pars_graph)
 #dev.off()
 
 # Get model summary
 round(summary(fit_ricker,pars= pars_graph, probs=c(0.1,0.9))$summary,6)
 
 # Correlation 
-#pairs(fit_ricker_1, pars=c("alpha", "beta", "b1","b2", "b3", "sigma"))
+pairs(fit_ricker, pars=pars_graph)
 
 # Traceplots
 traceplot(fit_ricker, pars=pars_graph)
