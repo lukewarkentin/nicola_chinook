@@ -4,6 +4,7 @@ library(tidyhydat)
 library(dplyr)
 library(lubridate)
 library(ggplot2)
+library(EflowStats)
 
 # Get hydrology and weather data for covariates ---------------
 # Hydrology - flow in Nicola River at spence's bridge, maximum value October 1 - December 31, for each year  
@@ -58,16 +59,18 @@ write.csv(d, "./data/nicola_yearly_flows.csv", row.names=FALSE)
 
 
 #get full time series of flow data for Nicola at Spences Bridge and Spius and COldwater
-fd <- hy_daily_flows(station_number= c("08LG006", 
+fd <- hy_daily_flows(station_number="08LG006" )
                      # "08LG008", # SPIUS CREEK NEAR CANFORD # Missing 2009-2010
                      # "08LG010", # COLDWATER RIVER AT MERRITT) # Missing 1996-2004
-                     "08LG048") # COLDWATER RIVER NEAR BROOKMERE 
-)
+                     # "08LG048" # COLDWATER RIVER NEAR BROOKMERE 
+
 fd <- merge(fd, allstations[names(allstations) %in% c("STATION_NAME", "STATION_NUMBER")], by="STATION_NUMBER")
 # Add year, year-day, and month columns
 fd$year <- year(fd$Date)
 fd$yday <- yday(fd$Date)
 fd$month <- month(fd$Date, abbr=TRUE, label=TRUE)
+fd$water_year <- get_waterYear(fd$Date)
+
 # get observations by month
 month_tab <- table(fd$year, fd$month)
 # Get vector of years with complete August records
@@ -76,14 +79,16 @@ complete_aug <- names(complete_aug)
 # Get vector of years with complete Oct 1- Dec 31 records (fall)
 complete_fall <- apply(month_tab[,10:12], 1, function(x) all(x>29))
 complete_fall <- names(complete_fall[complete_fall==TRUE])
+
 # just get years with complete aug and fall periods
 d1 <- d[d$year %in% complete_aug & d$year %in% complete_fall, ]
 # get only rows with no NAs
 d2 <-  d1[which(apply(d1, 1, function(i) all(!is.na(i)))),]
+
 # Plot correlation between max fall flow and aug flow in rearing, for each brood year
 png("./figures/fig_correlation_fall_aug_flows.png",  res=100)
 plot(d2$max_flow_fall, d2$mean_flow_aug_rearing, ylab="Mean fall flow, rearing summer (m3/s)", xlab="Max fall flow, spawning (m3/s)")
-points(d2$max_flow_fall[d2$year>=1995 & d2$year<=2013], d2$mean_flow_aug_rearing[d2$year>=1995 & d2$year<=2013], col="red")
+points(d2$max_flow_fall[d2$year>=1992 & d2$year<=2013], d2$mean_flow_aug_rearing[d2$year>=1995 & d2$year<=2013], col="red")
 dev.off()
 cor(d2$max_flow_fall, d2$mean_flow_aug_rearing)
 
@@ -113,6 +118,30 @@ fig_fall_flows <- ggplot(fd_complete_fall[ fd_complete_fall$month %in% c(10:12),
   theme(axis.text.x = element_text(angle=90, vjust=0.5))
 fig_fall_flows
 
+# look at hydrograph for years between 1992 - 2018, ignore freshet
+mon_in <- month(c(1:2,7:12), abbr=TRUE, label=TRUE)
+fd %>% filter(
+  #month %in% mon_in & 
+    water_year %in% c(1992:1994, 2002:2004, 2010:2012)) %>%
+  ggplot(., aes(y=Value, x=Date, colour=Symbol)) +
+  geom_point() +
+  scale_y_log10() +
+  facet_wrap(~water_year, ncol=3, strip.position = "top", scales="free_x") +
+  #scale_x_date(date_breaks="1 month", date_labels = "%e %b %y") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle=90, vjust=0.5))
+
+# Plot number of days ice over each winter
+ice_tab <- as.data.frame(table(fd$water_year, fd$Symbol)[,"B"])
+str(ice_tab)
+ice_tab$year <- as.integer(row.names(ice_tab))
+ice_tab$brood_year <- ice_tab$year - 1
+names(ice_tab)[1] <- "ice_days"
+
+ggplot(ice_tab[ice_tab$Var1 >= 1992 & ice_tab$Var2=="B", ], aes(y=Freq, x=Var1)) +
+  geom_point() 
+str(ice_tab)
+names()
 # Look at winter flows for years 1990 to 2015
 fig_late_winter_flows <- fd %>% filter(month %in% c("Jan", "Feb", "Mar") & year %in% c(1995:2014)) %>%
   ggplot(., aes(y=Value, x=Date, colour=Symbol)) +
