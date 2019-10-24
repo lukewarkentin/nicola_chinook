@@ -68,20 +68,29 @@ d_norm<- d_unscaled
 d_norm[,10:ncol(d_norm)] <- apply(d_norm[,10:ncol(d_norm)], 2, normalize)
 # reverse max flow to get colour right
 d_norm$sep_dec_max_flow_rev <- 1 - d_norm$sep_dec_max_flow 
+d_norm$ice_days_rev <- 1 - d_norm$ice_days
 
+# Normalize full range of hydrometric data
+fd_norm <- fd
+# remove 2014 (all NAs for rearing year)
+fd_norm <- fd_norm[ !fd_norm$year==2014,]
+fd_norm[ , 2:ncol(fd_norm)] <- apply(fd_norm[,2:ncol(fd_norm)], 2, normalize)
+# reverse max flow to get colour right
+fd_norm$sep_dec_max_flow_rev <- 1 - fd_norm$sep_dec_max_flow 
+fd_norm$ice_days_rev <- 1 - fd_norm$ice_days
 
 # # Visual checks
 # Check Correlation
 # make vector of predictor variables to check correlation
 names(d_unscaled)
-pred_plot <- names(d_unscaled)[c(17,24,25,33, 42)]
+pred_plot <- names(d_unscaled)[c(17,24,25,33, 40, 42)]
 pred_plot
 png("./figures/fig_correlation_predictors.png", height=800, width=1200, pointsize=30)
 plot(d_unscaled[ , pred_plot])
 dev.off()
 
 # Get correlations 
-d_cor <- cor(d_unscaled[ , pred_plot], use="complete.obs" )
+d_cor <- cor(d_unscaled[ , pred_plot] )
 d_cor
 write.csv(d_cor, "correlation.csv")
 
@@ -93,13 +102,13 @@ write.csv(d_cor, "correlation.csv")
 # # Look at recruits/spawners
 # plot(d$wild_recruits/d$total_spawners ~ d$brood_year)
 # 
-# # Examine covariates----------
-# ggplot(d, aes(y=smolt_age3_survival, x=brood_year)) + 
-#   geom_line() + 
-#   geom_point() +
-#   theme_bw() +
-#   scale_x_continuous(breaks=seq(min(d$brood_year), max(d$brood_year), 1))
-# 
+# Examine covariates----------
+ggplot(d_unscaled, aes(y=smolt_age3_survival, x=brood_year)) +
+  geom_line() +
+  geom_point() +
+  theme_bw() +
+  scale_x_continuous(breaks=seq(min(d$brood_year), max(d$brood_year), 1))
+
 # ggplot(d, aes(y=mean_flow_aug_rear, x=brood_year)) + 
 #   geom_line() + 
 #   geom_point() +
@@ -211,6 +220,8 @@ write.csv(d_cor, "correlation.csv")
 
 # Declare data, use centered covariates ----------
 # dat for autocorrelation linear 
+#d <- d[-nrow(d), ] # temp remove 2013 from data for checking jan_feb_max_flow (don't have for brood year 2013)
+
 dat <- list(
   N = nrow(d),
   log_R = log(d$wild_recruits),
@@ -218,7 +229,6 @@ dat <- list(
   ocean_surv = d$smolt_age3_survival,
   aug_mean_flow = d$aug_mean_flow,
   sep_dec_max_flow = d$sep_dec_max_flow,
-  jan_feb_max_flow = d$jan_feb_max_flow,
   aug_mean_flow_rear = d$aug_mean_flow_rear,
   ice_days = d$ice_days
 )
@@ -232,9 +242,9 @@ inits= rep(
          b1 = rnorm(1, mean=0, sd=0.1),
          b2 = rnorm(1, mean=0, sd=0.1),
          b3 = rnorm(1, mean=0, sd=0.1),
-         #b4 = rnorm(1, mean=0, sd=0.1),
+         b4 = rnorm(1, mean=0, sd=0.1),
          b5 = rnorm(1, mean=0, sd=0.1),
-         b6 = rnorm(1, mean=0, sd=0.1),
+         #b6 = rnorm(1, mean=0, sd=0.1),
          tau =  runif(1, 0, 2),
          phi = runif(1, -0.99, 0.99),
          log_resid0 = rnorm(1, mean=0, sd = rgamma(1, shape=0.01, scale=0.01) * (1- runif(1, -0.99, 0.99)^2))
@@ -246,9 +256,10 @@ inits= rep(
 pars_track <- c("alpha", "beta","b1",
                 "b2", 
                 "b3", 
-                #"b4", 
+                "b4", 
                 "b5", 
-                "b6", "tau", "phi", "log_resid0", "log_resid", "tau_red", "pp_R")
+                #"b6", 
+                "tau", "phi", "log_resid0", "log_resid", "tau_red", "pp_R")
                 #,"log_lik")
 # Fit stan model
 fit_ricker <- stan( file = "ricker_linear_AR_3.stan", 
@@ -258,14 +269,22 @@ fit_ricker <- stan( file = "ricker_linear_AR_3.stan",
 
 # make output into data frame
 post <- as.data.frame(fit_ricker)
+# get posterior predictions for spawners
+ppd <- post[, grep("pp_R", colnames(post))]
+mn_ppd <- apply(ppd,2,mean) # get mean of predicted
+median_ppd <- apply(ppd,2,median) # get mean of predicted
+ci_ppd <- apply(ppd,2,rethinking::HPDI,prob=0.9) # get CI of predicted
+ci_ppd50 <- apply(ppd,2,rethinking::HPDI,prob=0.5) # get CI of predicted
+ci_ppd10 <- apply(ppd,2,rethinking::HPDI,prob=0.1) # get CI of predicted
 
 # parameters to graph
 pars_graph <- c("alpha", "beta","b1", 
                 "b2", 
                 "b3", 
-                #"b4", 
+                "b4", 
                 "b5", 
-                "b6", "tau", "phi", "log_resid0")
+                #"b6", 
+                "tau", "phi", "log_resid0")
 
 # Plot estimates and CIs
 png(filename="./figures/fig_estimates_CI.png", width=700, height=500)
@@ -391,14 +410,6 @@ rethinking::dens(post$tau)
 # dev.off()
 
 # plot data with predicted intervals
-# get posterior predictions for spawners
-ppd <- post[, grep("pp_R", colnames(post))]
-mn_ppd <- apply(ppd,2,mean) # get mean of predicted
-median_ppd <- apply(ppd,2,median) # get mean of predicted
-ci_ppd <- apply(ppd,2,rethinking::HPDI,prob=0.9) # get CI of predicted
-ci_ppd50 <- apply(ppd,2,rethinking::HPDI,prob=0.5) # get CI of predicted
-ci_ppd10 <- apply(ppd,2,rethinking::HPDI,prob=0.1) # get CI of predicted
-
 plot(d$wild_recruits ~ d$total_spawners , ylim=c(min(ci_ppd), max(c(ci_ppd, d$wild_recruits))))
 points(x=d$total_spawners, y=mn_ppd, add=TRUE, col="dodger blue")
 segments(x0= d$total_spawners, y0=ci_ppd[1,], y1=ci_ppd[2,], lwd=1, col="dodger blue")
@@ -407,12 +418,12 @@ segments(x0= d$total_spawners, y0=ci_ppd[1,], y1=ci_ppd[2,], lwd=1, col="dodger 
 png(filename="./figures/fig_predicted_time_series_with_covariates.png", width=1200, height=800, pointsize = 30)
 par(mar=c(4,4,0,0) +0.1)
 plot(y=d$wild_recruits, x=d$brood_year, ylim=c(min(ci_ppd), max(ci_ppd)), xlab="Brood year", ylab="Recruits")
-lines(y=mn_ppd, x=d$brood_year, col="dodger blue", add=TRUE)
-lines(y=median_ppd, x=d$brood_year, col="firebrick", add=TRUE)
-abline(h=0, lty=2, add=TRUE)
-polygon(x=c(d$brood_year, rev(d$brood_year)), y=c(ci_ppd[1,], rev(ci_ppd[2,])), col = adjustcolor('grey', alpha=0.5), border = NA, add=TRUE)
-polygon(x=c(d$brood_year, rev(d$brood_year)), y=c(ci_ppd50[1,], rev(ci_ppd50[2,])), col = adjustcolor('grey', alpha=0.5), border = NA, add=TRUE)
-polygon(x=c(d$brood_year, rev(d$brood_year)), y=c(ci_ppd10[1,], rev(ci_ppd10[2,])), col = adjustcolor('grey', alpha=0.5), border = NA, add=TRUE)
+lines(y=mn_ppd, x=d$brood_year, col="dodger blue")
+lines(y=median_ppd, x=d$brood_year, col="firebrick")
+abline(h=0, lty=2)
+polygon(x=c(d$brood_year, rev(d$brood_year)), y=c(ci_ppd[1,], rev(ci_ppd[2,])), col = adjustcolor('grey', alpha=0.5), border = NA)
+polygon(x=c(d$brood_year, rev(d$brood_year)), y=c(ci_ppd50[1,], rev(ci_ppd50[2,])), col = adjustcolor('grey', alpha=0.5), border = NA)
+polygon(x=c(d$brood_year, rev(d$brood_year)), y=c(ci_ppd10[1,], rev(ci_ppd10[2,])), col = adjustcolor('grey', alpha=0.5), border = NA)
 
 dev.off()
 
@@ -451,8 +462,13 @@ dev.off()
 
 
 # #summarise d wide to long format
-d1_sum <- d_norm[ ,c("smolt_age3_survival", "aug_mean_flow", "sep_dec_max_flow_rev", "aug_mean_flow_rear", "brood_year", "recruits_per_spawner", "wild_recruits", "prop_wild", "total_spawners")] %>%
-  tidyr::gather(., key="variable", value="value", c("smolt_age3_survival", "aug_mean_flow", "sep_dec_max_flow_rev", "aug_mean_flow_rear"), -c("brood_year", "recruits_per_spawner", "wild_recruits", "total_spawners", "prop_wild")) 
+d1_sum <- d_norm[ ,c("smolt_age3_survival", "aug_mean_flow", "sep_dec_max_flow_rev", "aug_mean_flow_rear", "ice_days_rev", "brood_year", "recruits_per_spawner", "wild_recruits", "prop_wild", "total_spawners")] %>%
+  tidyr::gather(., key="variable", value="value", c("smolt_age3_survival", "aug_mean_flow", "sep_dec_max_flow_rev", "ice_days_rev", "aug_mean_flow_rear"), -c("brood_year", "recruits_per_spawner", "wild_recruits", "total_spawners", "prop_wild")) 
+str(d1_sum)
+# change variable to a factor for graphing
+d1_sum$variable <- as.factor(d1_sum$variable)
+# reorder levels for graphing, according to order in life cycle
+d1_sum$variable <- factor(d1_sum$variable, levels = c("aug_mean_flow", "sep_dec_max_flow_rev", "ice_days_rev", "aug_mean_flow_rear", "smolt_age3_survival"))
 
 #myPalette <- colorRampPalette(RColorBrewer::brewer.pal(11, "Spectral")) # get colour palette
 myPalette <- colorRampPalette(RColorBrewer::brewer.pal(11, "RdYlGn"), bias=1.5) # get colour palette
@@ -464,6 +480,7 @@ beta <- mod_sum[2,1]
 R <- alpha* S * exp(-beta*S)
 ricker <- data.frame(S,R)
 
+
 # Plot recruits per spawner over time
 fig_recruitment_covariates <-
   ggplot(d1_sum, aes(y=recruits_per_spawner, x=brood_year)) +
@@ -471,7 +488,7 @@ fig_recruitment_covariates <-
   geom_point(aes(shape=variable, colour=value), size=5, position=position_dodge(width=0.7)) +
   #geom_text(aes(label=round(prop_wild,2))) +
   scale_colour_gradientn(colours = myPalette(100)) +
-  scale_shape_manual(values=c(19,19,19,19), breaks=c("aug_mean_flow", "sep_dec_max_flow_rev", "aug_mean_flow_rear", "smolt_age3_survival")) +
+  scale_shape_manual(values=rep(19,5)) +
   theme_bw()
 fig_recruitment_covariates
 ggsave("./figures/fig_recruitment_covariates.png", fig_recruitment_covariates, width=12, height=8)
@@ -483,7 +500,55 @@ fig_recruits_spawners_covariates <-
   geom_text( aes( label=brood_year), nudge_y=500, colour="black") +
   scale_colour_gradientn(colours = myPalette(100) ) +
   geom_line(data=ricker, aes(y=R, x=S), colour="black") + 
-  scale_shape_manual(values=rep(15,4), breaks=c("aug_mean_flow", "sep_dec_max_flow_rev", "aug_mean_flow_rear", "smolt_age3_survival")) +
+  scale_shape_manual(values=rep(15,5)) + 
   theme_bw()
 fig_recruits_spawners_covariates
 ggsave("./figures/fig_recruits_spawners_covariates.png", fig_recruits_spawners_covariates, width=12, height=8)
+
+# graph all normalized covariates time series
+fig_covariates <- ggplot(d1_sum, aes(y=value, x=brood_year, colour=variable)) +
+  geom_line(size=2) +
+  #geom_point(size=3) +
+  geom_point(aes(y=rep(1, nrow(d1_sum)), x=brood_year, size=round(recruits_per_spawner, 1)), colour="black") +
+  scale_colour_manual(values=c("darkred", "goldenrod1",  "turquoise1","salmon", "dodgerblue")) +
+  scale_x_continuous(breaks=seq(min(d1_sum$brood_year), max(d1_sum$brood_year), 1)) +
+  theme_bw()
+fig_covariates
+ggsave("./figures/fig_covariates.png", fig_covariates, width=12, height=3)
+
+# Look at full time series of hydrometric covariates
+# Plot correlation between all hydrometric variables for all years with complete measurement periods (e.g., complete august, sep-dec, and winter ice period)
+plot_vars <- c("aug_mean_flow", "sep_dec_max_flow", "ice_days", "aug_mean_flow_rear")
+plot(fd[ , plot_vars])
+
+# plot as a time series of normalized variables
+# wide to long format
+fd_norm_sum <- fd_norm[ ,c("aug_mean_flow", "sep_dec_max_flow_rev", "aug_mean_flow_rear", "ice_days_rev", "year")] %>%
+  tidyr::gather(., key="variable", value="value", c("aug_mean_flow", "sep_dec_max_flow_rev", "ice_days_rev", "aug_mean_flow_rear"), -c("year")) 
+fd_long <- fd[ ,c("aug_mean_flow", "sep_dec_max_flow", "aug_mean_flow_rear", "ice_days", "year")] %>%
+  tidyr::gather(., key="variable", value="value", c("aug_mean_flow", "sep_dec_max_flow", "ice_days", "aug_mean_flow_rear"), -c("year")) 
+
+cor(fd[ , plot_vars], use="complete.obs")
+
+# Plot time series
+fig_hyd_covariates_full <- ggplot(fd_norm_sum[fd_norm_sum$year>=1958,], aes(y=value, x=year, colour=variable)) +
+  geom_line(size=2) +
+  #geom_point(size=3) +
+  geom_point(data=d1_sum, aes(y=rep(1, nrow(d1_sum)), x=brood_year, size=round(recruits_per_spawner, 1)), colour="black") +
+  scale_colour_manual(values=c("darkred", "goldenrod1",  "turquoise1","salmon")) +
+  scale_x_continuous(breaks=seq(1958, max(fd_norm_sum$year), 1)) +
+  theme_bw() + 
+  theme(axis.text.x=element_text(angle=90, vjust=0.5))
+fig_hyd_covariates_full
+
+fig_raw_hyd_covariates <- ggplot(fd_long[fd_long$year>=1958,], aes(y=value, x=year, colour=variable)) +
+  geom_line(size=2) +
+  #geom_point(size=3) +
+  #geom_point(data=d1_sum, aes(y=rep(1, nrow(d1_sum)), x=brood_year, size=round(recruits_per_spawner, 1)), colour="black") +
+  scale_colour_manual(values=c("darkred", "goldenrod1",  "turquoise1","salmon")) +
+  scale_x_continuous(breaks=seq(1958, max(fd_norm_sum$year), 1)) +
+  facet_wrap(~variable, scales="free_y") + 
+  theme_bw() + 
+  #stat_smooth() +
+  theme(axis.text.x=element_text(angle=90, vjust=0.5))
+fig_raw_hyd_covariates 

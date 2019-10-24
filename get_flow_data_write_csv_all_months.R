@@ -77,5 +77,19 @@ names(d_rear)[2:ncol(d_rear)] <- paste0(names(d_rear)[2:ncol(d_rear)], "_rear")
 
 d <- merge(d_spawn, d_rear, by="year", all=TRUE)
 
-write.csv(d, "./data/nicola_yearly_flows_all_months.csv", row.names=FALSE)
+
+# Clip to only full years
+# Get all the flow data
+fd <- hy_daily_flows(station_number= "08LG006")
+fd$year <- year(fd$Date)
+fd$month <- month(fd$Date)
+
+# get observations by month
+month_tab <- table(fd$year, fd$month)
+# Get vector of years with complete years
+d_full_yr <- d[d$year %in% as.numeric(names(which(table(fd$year)>=365))), ]
+
+
+write.csv(d_full_yr, "./data/nicola_yearly_flows_all_months.csv", row.names=FALSE)
+
 
