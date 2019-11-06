@@ -7,6 +7,7 @@ library(lubridate)
 library(tidyr)
 library(dplyr)
 library(ggplot2)
+library(gridExtra)
 
 # Hatchery release data ------
 # Read in data, dowloaded from RMIS: https://www.rmis.org/cgi-bin/queryfrm.mpl?Table=all_releases&Version=4.1
@@ -133,7 +134,7 @@ CWT_all <- CWT_all[ !is.na(CWT_all$brood_year),]
 CWT_all <- CWT_all[ !CWT_all$release_stage %in% c("E", "Z"), ]
 # Remove rows with 0 tagged_adclipped - not used for return index
 CWT_all <- CWT_all[ !CWT_all$sum_tagged_adclipped==0, ]
-# remove all rows with brood year > 2014 (need to have only years with complete record, 4 yr fish from brood year 2015 will be returning fall 2019) - TO UPDATE WITH 2019 SPAWNIN SEASON DATA
+# remove all rows with brood year > 2014 (need to have only years with complete record, 4 yr fish from brood year 2015 will be returning fall 2019) - TO UPDATE WITH 2019 SPAWNING SEASON DATA
 CWT_all <- CWT_all[ !CWT_all$brood_year > 2014, ]
 # Remove one Coldwater row with NA returns
 CWT_all <- CWT_all[!(CWT_all$stock_location_name=="S-Coldwater R" & is.na(CWT_all$sum_CWT_returns)), ]
@@ -278,7 +279,12 @@ master2[i, "sum_untagged_unclipped"] *
           master$return_age == master2$return_age[i]  , "return_index"]  
 )[1],
 0)
-  }
+}
+
+# make results that result in numeric lenght 0 values into NAs
+master2$unmarked_returns2[which(lengths(master2$unmarked_returns2) == 0)] <- NA
+master2$unmarked_returns2 <- unlist(master2$unmarked_returns2)
+
 
 ########## RIGHT NOW IT WORKS FOR EVERYHTING EXCEPT BROOD YEARS > 2014 and A COUPLE AGE 2 RETURNS THAT WE PROBABLY DON'T HAVE RETURN INDEXES FOR BECAUSE THERE WERE NO AGE 2 RETURND FROM THE COMPLEMENTARY RELEASE STAGE ##########
 
@@ -329,11 +335,12 @@ return_index_factors_stock <- return_index_factors_stock[!return_index_factors_s
 # number untagged unclipped * return index factor for that converstion * return index for Nicola Stock in same year
 # New column to fill in
 master3$unmarked_returns3 <- 0
+
 # fill in column with for loop
 for(i in 1:nrow(master3)) {
   master3$unmarked_returns3[i] <- 
     round(
-    na.exclude(
+      na.exclude(
       # Number of untagged unclipped needed to be expanded
       master3[i, "sum_untagged_unclipped"] * 
         # return index factor    
@@ -351,33 +358,51 @@ for(i in 1:nrow(master3)) {
     0)
 }
 
+# make results that result in numeric lenght 0 values into NAs
+master3$unmarked_returns3[which(lengths(master3$unmarked_returns3) == 0)] <- NA
+master3$unmarked_returns3 <- unlist(master3$unmarked_returns3)
 
 # Merge estimated unmarked returns by brood year and return age from each of the three cases
 cols_merge <- c("release_stage", "brood_year", "stock_location_name", "sum_tagged_adclipped", "sum_untagged_unclipped", "return_index", "return_age" )
 unmarked <- merge(master[case1,], merge(master2, master3, by=cols_merge, all=TRUE), by=cols_merge, all=TRUE)
+str(unmarked)
+# make unmarked_returns2 and unmarked_returns3 into numeric vectors
+# unmarked$unmarked_returns2 <- unlist(unmarked$unmarked_returns2)
 
 unmarked_totals <- unmarked %>% group_by(brood_year, return_age) %>% summarise(unmarked_hatchery_returns= sum(unmarked_returns1, unmarked_returns2, unmarked_returns3, na.rm=TRUE))
 
-# Read in brood table of escapement ----------
-escapement <- read_excel("./data/Nicola (1995-2018) RiverSpawnerplusHatcheryEscbyAge and Clip status May 31 2019.xlsx", skip=1 )
+# Read in brood table of escapement ----------  CHECK THAT THIS WORKS WITH LATEST DATA
+escapement <- read_excel("./data/Nicola (1995-2018) RiverSpawnerplusHatcheryEscbyAge and Clip status Nov 5 2019.xlsx", sheet=2, skip=2 )
 names(escapement)[1:3] <- c("run_year", "return_age", "brood_year")
-escapement$Corrected_Unclipped_Spawners <- round(escapement$Corrected_Unclipped_Spawners,0) # round to nearest whole number
-escapement$Clipped_Spawners <- round(escapement$Clipped_Spawners, 0) # round to nearest whole number
+escapement[,5:10] <- round(escapement[,5:10],0) # round to nearest whole number
 # merge with unmarked totals
 escapement1 <- merge(escapement, unmarked_totals, by=c("return_age", "brood_year"), all.x=TRUE)
 # Subtract estimated unclipped hatchery returns from unclipped returns to get 'true' wild recruits
-escapement1$Wild_Spawners <- escapement1$Corrected_Unclipped_Spawners - escapement1$unmarked_hatchery_returns
+escapement1$wild_escapement <- escapement1$Corrected_Unclipped_Nicola_Escapement - escapement1$unmarked_hatchery_returns
 # For negative values, make into 0 ------- CHECK WITH CHUCK TO SEE IF THIS IS OKAY
  for(i in 1:nrow(escapement1)) {
-   escapement1$Wild_Spawners[i] <-ifelse(escapement1$Wild_Spawners[i]>=0,
-                                                   escapement1$Wild_Spawners[i],
+   escapement1$wild_escapement[i] <-ifelse(escapement1$wild_escapement[i]>=0,
+                                                   escapement1$wild_escapement[i],
                                                    0)
 }
 
 # Get total spawners (wild + hatchery) for each run year
-escapement1$total_spawners <- escapement1$Corrected_Unclipped_Spawners + escapement1$Clipped_Spawners
-# Get tru hatchery spawners
-escapement1$true_hatchery_spawners <- escapement1$total_spawners - escapement1$Wild_Spawners
+escapement1$total_spawners <- escapement1$Corrected_Unclipped_River_Spawners + escapement1$Clipped_River_Spawners
+# Get true wild spawners
+# First need to get percentage of true wild escapement from unclipped escapement, then apply percentage to unmarked spawners
+escapement1$perc_true_wild_escapement <- escapement1$wild_escapement / escapement1$Corrected_Unclipped_Nicola_Escapement
+# Replace NaN with 0
+escapement1$perc_true_wild_escapement[escapement1$perc_true_wild_escapement=="NaN"] <- 0
+# Get true wild spawners
+escapement1$true_wild_spawners <- round(escapement1$Corrected_Unclipped_River_Spawners * escapement1$perc_true_wild_escapement,0)
+# Get true hatchery spawners
+escapement1$true_hatchery_spawners <- escapement1$total_spawners - escapement1$true_wild_spawners
+
+# visual check
+plot(escapement1$Corrected_Unclipped_Nicola_Escapement)
+points(escapement1$wild_escapement, col="dodgerblue")
+points(escapement1$true_wild_spawners, col="orange")
+abline(h=0)
 
 # Account for exploitation rate
 # Read in exploitation rate data
@@ -406,25 +431,32 @@ exploit <- exploit_list %>% purrr::reduce(full_join, by=c("brood_year", "return_
 
 # Try a different approach - get ratios of wild to CWT fish for each cohort
 # First check the age distribution for hatchery and wild fish
-escapement1 %>% 
+matH <- escapement1 %>% 
+  filter(brood_year >=1992 & brood_year <= 2014 ) %>%
   group_by(brood_year, return_age) %>%  
-  summarise(n = sum(Clipped_Spawners, unmarked_hatchery_returns)) %>%
+  summarise(n = sum(Clipped_Nicola_Escapement, unmarked_hatchery_returns)) %>%
   mutate(freq = n / sum(n)) %>% 
   ggplot(data=., aes(y=freq, x=brood_year, fill=factor(return_age))) +
+  ggtitle("Hatchery") +
   geom_col()
 
-escapement1 %>% 
+matW <- escapement1 %>% 
+  filter(brood_year >=1992 & brood_year <= 2014 ) %>%
   group_by(brood_year, return_age) %>%  
-  summarise(n = sum(Wild_Spawners)) %>%
+  summarise(n = sum(wild_escapement)) %>%
   mutate(freq = n / sum(n)) %>% 
   ggplot(data=., aes(y=freq, x=brood_year, fill=factor(return_age))) +
+  ggtitle("Wild") +
   geom_col()
+ggsave("./figures/fig_mat_schedule.png", grid.arrange(matH, matW, ncol=1))
+
 
 # For age 3 and 5 returns, use average of other years for NA years
 # Get averages of years that don't have NA or 1.0 for exploitation rate
  exploit_sum <- exploit %>% filter(!is.na(exploitation_rate), !exploitation_rate==1) %>% 
    group_by(return_age) %>% summarise(mean_exploitation_rate=mean(exploitation_rate, na.rm=TRUE)) # make summary data frame
  exploit1 <- exploit
+ # For ages/brood years with 0 fisheries mortality and 0 escapement, use average escapement
  for(i in 1:nrow(exploit1)) { 
    exploit1$exploitation_rate[i] <- unlist(ifelse(exploit1$sum_TMAEQ_tot[i]==0 & exploit1$sum_escapement[i]==0, 
                                          exploit_sum[exploit_sum$return_age ==exploit1$return_age[i], "mean_exploitation_rate"],
@@ -441,39 +473,54 @@ str(exploit1)
 for(i in 1:nrow(exploit1)) { 
   exploit1$exploitation_rate[i] <- unlist(ifelse(exploit1$sum_TMAEQ_tot[i]>0 & exploit1$sum_escapement[i]==0, # does row have fisheries mortality but no escapement for CWT
       exploit1$sum_TMAEQ_tot[i] *  # if true, multiply CWT fisheries mort for age 3 by
-        sum(escapement1$Wild_Spawners[escapement1$brood_year==exploit1$brood_year[i] & escapement1$return_age %in% c(4,5)]) / #expansion factor to get wild fishery mortality, which is wild escapement of ages 4 + 5 divided by
+        sum(escapement1$wild_escapement[escapement1$brood_year==exploit1$brood_year[i] & escapement1$return_age %in% c(4,5)]) / #expansion factor to get wild fishery mortality, which is wild escapement of ages 4 + 5 divided by
               sum(escapement1$true_hatchery_spawners[escapement1$brood_year==exploit1$brood_year[i] & escapement1$return_age %in% c(4,5)]) / #hatchery escapement for age 4 and 5
            
         # this is to get estimated wild fishery mortality
         (exploit1$sum_TMAEQ_tot[i] *  # if true, multiply CWT fisheries mort for age 3 by
-        sum(escapement1$Wild_Spawners[escapement1$brood_year==exploit1$brood_year[i] & escapement1$return_age %in% c(4,5)]) / #expansion factor to get wild fishery mortality, which is wild escapement of ages 4 + 5 divided by
+        sum(escapement1$wild_escapement[escapement1$brood_year==exploit1$brood_year[i] & escapement1$return_age %in% c(4,5)]) / #expansion factor to get wild fishery mortality, which is wild escapement of ages 4 + 5 divided by
         sum(escapement1$true_hatchery_spawners[escapement1$brood_year==exploit1$brood_year[i] & escapement1$return_age %in% c(4,5)]) + #then divide by sum of wild fishery mortality and wild escapement to get exploitation rate
-          escapement1$Wild_Spawners[escapement1$brood_year==exploit1$brood_year[i] & escapement1$return_age==3]),       # and add wild spawners to wild fishery mortality
+          escapement1$wild_escapement[escapement1$brood_year==exploit1$brood_year[i] & escapement1$return_age==3]),       # and add wild spawners to wild fishery mortality
                                                  
       exploit1$exploitation_rate[i] # if false, just use existing exploitation rate
   ))
 }
 
+# NOTE - NO EXPLOITATION RATE FOR BROOD YEAR 2014
+
 str(exploit1)
 # visual check
-# ggplot(exploit, aes(y=exploitation_rate, x=brood_year, colour=return_age)) +
-#   geom_point(aes(size=sum_escapement)) +
-#   geom_line() +
-#   #geom_line(aes(y=sum_TMAEQ_tot, x=brood_year)) +
-#   #geom_line(aes(y=sum_escapement, x=brood_year)) +
-#   theme_bw()
+ggplot(exploit1, aes(y=exploitation_rate, x=brood_year, colour=return_age)) +
+  geom_point(aes(size=sum_escapement)) +
+  geom_line() +
+  #geom_line(aes(y=sum_TMAEQ_tot, x=brood_year)) +
+  #geom_line(aes(y=sum_escapement, x=brood_year)) +
+  theme_bw()
 
 # Apply exploitation to unclipped escapement
 escapement2 <- merge(escapement1, exploit1[,c(1,2,5)], by=c("return_age", "brood_year"), all.x=TRUE)
 # calculate recruits from escapement and exploitation rate
-escapement2$recruits <- round(escapement2$Wild_Spawners / (1 - escapement2$exploitation_rate),0)
+escapement2$recruits <- round(escapement2$wild_escapement / (1 - escapement2$exploitation_rate),0)
 # remove NA rows, mostly age 2 fish
 escapement2 <- escapement2[!is.na(escapement2$recruits), ]
 # select brood years with complete recruits (ages 3-5)
 # escapement2 <- escapement2[escapement2$brood_year > 1991 & escapement2$brood_year < 2014, ]
 
+#visual check 
+ggplot(escapement2, aes(y=recruits, x=brood_year)) + 
+  geom_point() +
+  geom_path() +
+  geom_point(aes(y=Corrected_Unclipped_Nicola_Escapement ), colour="gray") +
+  geom_point(aes(y=Corrected_Unclipped_Nicola_Escapement- unmarked_hatchery_returns, x=brood_year + rep(0.2, nrow(escapement2))), colour="orange") +
+  geom_point(aes(y=wild_escapement), colour="blue") +
+  geom_point(aes(y=true_wild_spawners), colour="red") +
+  scale_x_continuous(breaks=seq(min(escapement2$brood_year), max(escapement2$brood_year),1)) +
+  facet_grid(~return_age) +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle=90, vjust=0.5)) 
+
 # Write csv of brood table 
-write.csv(escapement2[,c("return_age", "run_year", "brood_year", "recruits", "total_spawners", "Wild_Spawners")], "./data/nicola_brood_table.csv", row.names=FALSE)
+write.csv(escapement2[,c("return_age", "run_year", "brood_year", "recruits", "total_spawners", "true_wild_spawners", "true_hatchery_spawners")], "./data/nicola_brood_table.csv", row.names=FALSE)
 
 ################################
 ############# FIGURES ##########

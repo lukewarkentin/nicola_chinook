@@ -19,11 +19,10 @@ rm(list=ls())
 # Data -------------
 brood <- read.csv("./data/nicola_brood_table.csv") # read in cohort data table with hatchery data
 # manipulate to get recruits
-spawners <- brood %>% group_by(run_year) %>% summarise(total_spawners=sum(total_spawners), wild_spawners=sum(Wild_Spawners))
+spawners <- brood %>% group_by(run_year) %>% summarise(total_spawners=sum(total_spawners), wild_spawners=sum(true_wild_spawners))
 recruits <- brood %>% group_by(brood_year) %>% summarise(wild_recruits=sum(recruits))
 sd <- merge(recruits, spawners, by.x="brood_year", by.y="run_year", all=TRUE)
 sd$prop_wild <- sd$wild_spawners / sd$total_spawners
-sd$hatch_spawners <- sd$total_spawners - sd$wild_spawners
 
 # Read in calibrated peak count estimates (aerial counts? Check with Chuck Parken) from 1992 to 1994 with CV, and variance and CV for mark-recapture estimates from 1995-2018
 spawn_sup <- read.csv("./data/mark_recap_and_peak_count_estimates_with_variance_and_CV_Nicola.csv", strip.white = TRUE)
@@ -52,11 +51,18 @@ d <- d[d$brood_year>=1992 & d$brood_year<=2013, ]
 
 # Centre and standardize all predictor variables
 d_unscaled <- d # make unscaled data frame for graphing raw predictor variables
-names(d)[10]
-d[ ,10:ncol(d)] <- as.numeric(scale(d[ ,10:ncol(d)])) # centre and standardize all predictor variables
+names(d)[9]
+d[ ,9:ncol(d)] <- as.numeric(scale(d[ ,9:ncol(d)])) # centre and standardize all predictor variables
 # check
-round(colMeans(d, na.rm=TRUE),1)
-apply(d, 2, sd, na.rm=TRUE)
+# round(colMeans(d, na.rm=TRUE),1)
+# apply(d, 2, sd, na.rm=TRUE)
+
+# Get into model matrix form
+# pred_vars <- c("aug_mean_flow", "sep_dec_max_flow", "ice_days", "aug_mean_flow_rear", "smolt_age3_survival")
+# mod_matrix <- model.matrix(object = wild_recruits ~ aug_mean_flow + sep_dec_max_flow + ice_days + aug_mean_flow_rear + smolt_age3_survival, data=d)
+# colnames(mod_matrix)
+# mod_matrix <- mod_matrix[,-grep("(Intercept)", colnames(mod_matrix))] # remove intercept column
+# 
 
 # Normalize predictor variables for traffic light plots
 # Normalize function
@@ -65,7 +71,7 @@ normalize <- function(x) {
 }
 # apply to each column
 d_norm<- d_unscaled
-d_norm[,10:ncol(d_norm)] <- apply(d_norm[,10:ncol(d_norm)], 2, normalize)
+d_norm[,9:ncol(d_norm)] <- apply(d_norm[,9:ncol(d_norm)], 2, normalize)
 # reverse max flow to get colour right
 d_norm$sep_dec_max_flow_rev <- 1 - d_norm$sep_dec_max_flow 
 d_norm$ice_days_rev <- 1 - d_norm$ice_days
@@ -80,10 +86,11 @@ fd_norm$sep_dec_max_flow_rev <- 1 - fd_norm$sep_dec_max_flow
 fd_norm$ice_days_rev <- 1 - fd_norm$ice_days
 
 # # Visual checks
-# Check Correlation
+
+# Check Correlation between covariates
 # make vector of predictor variables to check correlation
 names(d_unscaled)
-pred_plot <- names(d_unscaled)[c(17,24,25,33, 40, 42)]
+pred_plot <- names(d_unscaled)[c(16,23,24,32, 39, 41)]
 pred_plot
 png("./figures/fig_correlation_predictors.png", height=800, width=1200, pointsize=30)
 plot(d_unscaled[ , pred_plot])
@@ -218,13 +225,24 @@ ggplot(d_unscaled, aes(y=smolt_age3_survival, x=brood_year)) +
 # curve(dnorm(x, mean=0, sd=1000), col="blue", from=min(resid(fit_lm)), to=max(resid(fit_lm)))
 # curve(dlnorm(x, meanlog = 0, sdlog=exp(500)), col="red", from=min(resid(fit_lm)), to=max(resid(fit_lm)))
 
+# Model comparison loop
+# l <- rep(list(0:1), 5) # make a list of 5 vectors that are 0,1
+# mod_combs <- expand.grid(l) # expand into a table that has all combinations of 0,1 for 5 columns
+# mod_matrix[ ,as.numeric(mod_combs[20,])] # check
+# 
+# for(i in 1:nrow(mod_combs)) {
+#   m <- mod_matrix[ ,as.numeric(mod_combs[i,])]
+#   print(m)
+# }
+
 # Declare data, use centered covariates ----------
 # dat for autocorrelation linear 
 #d <- d[-nrow(d), ] # temp remove 2013 from data for checking jan_feb_max_flow (don't have for brood year 2013)
 
 dat <- list(
   N = nrow(d),
-  log_R = log(d$wild_recruits),
+  #log_R = log(d$wild_recruits),
+  log_RS = log(d$wild_recruits/d$total_spawners),
   S = d$total_spawners, 
   ocean_surv = d$smolt_age3_survival,
   aug_mean_flow = d$aug_mean_flow,
@@ -251,6 +269,22 @@ inits= rep(
     )), 3
 )
 
+# inits no autocorrelation
+inits2= rep(
+  list(
+    list(#alpha=rnorm(1, mean= 3, sd= 1), #for non-linear
+      lnalpha = runif(1, 0,3), # for linear
+      beta = rnorm(1, 0.0002, 0.0001),
+      b1 = rnorm(1, mean=0, sd=0.1),
+      b2 = rnorm(1, mean=0, sd=0.1),
+      b3 = rnorm(1, mean=0, sd=0.1),
+      b4 = rnorm(1, mean=0, sd=0.1),
+      b5 = rnorm(1, mean=0, sd=0.1),
+      #b6 = rnorm(1, mean=0, sd=0.1),
+      tau =  runif(1, 0, 2)
+    )), 3
+)
+
 # fit ricker with autocorrelation
 # parameters for model 
 pars_track <- c("alpha", "beta","b1",
@@ -259,23 +293,51 @@ pars_track <- c("alpha", "beta","b1",
                 "b4", 
                 "b5", 
                 #"b6", 
-                "tau", "phi", "log_resid0", "log_resid", "tau_red", "pp_R")
-                #,"log_lik")
-# Fit stan model
-fit_ricker <- stan( file = "ricker_linear_AR_3.stan", 
-                      data=dat, chains=3, iter=10000, init=inits, 
-                      #control=list(adapt_delta=0.9),
-                      cores=2, pars=pars_track)
+                "tau", "phi", "log_resid0", "log_resid", "tau_red", "pp_log_RS", "pp_R",
+                "log_lik")
 
+# pars to track - no autocorrelation
+pars_track2 <- c("alpha", "beta","b1",
+                "b2", 
+                "b3", 
+                "b4", 
+                "b5", 
+                #"b6", 
+                "tau", "pp_log_RS", "pp_R")
+
+# # Fit stan model
+# fit_ricker <- stan( file = "ricker_linear_logRS.stan", 
+#                       data=dat, chains=3, iter=10000, init=inits, 
+#                       #control=list(adapt_delta=0.9),
+#                       cores=2, pars=pars_track)
+
+# fit model no autocorrelation
+fit_ricker2 <- stan( file = "ricker_linear_logRS_noAR.stan", 
+                    data=dat, chains=3, iter=10000, init=inits2, 
+                    #control=list(adapt_delta=0.9),
+                    cores=2, pars=pars_track2)
+
+fit_ricker <- fit_ricker2 # for no autocorrelatoin temp
 # make output into data frame
 post <- as.data.frame(fit_ricker)
-# get posterior predictions for spawners
+post <- as.data.frame(fit_ricker2)  # check no autocorrelation
+
+# get posterior predictions for recruits
 ppd <- post[, grep("pp_R", colnames(post))]
 mn_ppd <- apply(ppd,2,mean) # get mean of predicted
 median_ppd <- apply(ppd,2,median) # get mean of predicted
-ci_ppd <- apply(ppd,2,rethinking::HPDI,prob=0.9) # get CI of predicted
-ci_ppd50 <- apply(ppd,2,rethinking::HPDI,prob=0.5) # get CI of predicted
-ci_ppd10 <- apply(ppd,2,rethinking::HPDI,prob=0.1) # get CI of predicted
+ci_ppd <- apply(ppd,2,rethinking::PI,prob=0.9) # get CI of predicted
+ci_ppd50 <- apply(ppd,2,rethinking::PI,prob=0.5) # get CI of predicted
+ci_ppd10 <- apply(ppd,2,rethinking::PI,prob=0.1) # get CI of predicted
+
+# get posterior predictions for log(recruits/spawners)
+pp_log_RS <- post[, grep("pp_log_RS", colnames(post))]
+mn_pp_log_RS <- apply(pp_log_RS,2,mean) # get mean of predicted
+median_pp_log_RS <- apply(pp_log_RS,2,median) # get mean of predicted
+ci_pp_log_RS <- apply(pp_log_RS,2,rethinking::PI,prob=0.9) # get CI of predicted
+ci_pp_log_RS_50 <- apply(pp_log_RS,2,rethinking::PI,prob=0.5) # get CI of predicted
+ci_pp_log_RS_10 <- apply(pp_log_RS,2,rethinking::PI,prob=0.1) # get CI of predicted
+
 
 # parameters to graph
 pars_graph <- c("alpha", "beta","b1", 
@@ -284,7 +346,9 @@ pars_graph <- c("alpha", "beta","b1",
                 "b4", 
                 "b5", 
                 #"b6", 
-                "tau", "phi", "log_resid0")
+                "tau"#, 
+                #"phi", "log_resid0"
+                )
 
 # Plot estimates and CIs
 png(filename="./figures/fig_estimates_CI.png", width=700, height=500)
@@ -293,7 +357,7 @@ dev.off()
 
 # Plot estimates and CIs for covariate effects only
 png(filename="./figures/fig_estimates_CI_covariates_only.png", width=300, height=500)
-plot(fit_ricker, pars=pars_graph[3:8])
+plot(fit_ricker, pars=pars_graph[3:7])
 dev.off()
 
 # Get model summary
@@ -414,8 +478,8 @@ plot(d$wild_recruits ~ d$total_spawners , ylim=c(min(ci_ppd), max(c(ci_ppd, d$wi
 points(x=d$total_spawners, y=mn_ppd, add=TRUE, col="dodger blue")
 segments(x0= d$total_spawners, y0=ci_ppd[1,], y1=ci_ppd[2,], lwd=1, col="dodger blue")
 
-# Plot time series with predicted intervals
-png(filename="./figures/fig_predicted_time_series_with_covariates.png", width=1200, height=800, pointsize = 30)
+# Plot recruits time series with predicted intervals
+png(filename="./figures/fig_predicted_R_time_series.png", width=1200, height=800, pointsize = 30)
 par(mar=c(4,4,0,0) +0.1)
 plot(y=d$wild_recruits, x=d$brood_year, ylim=c(min(ci_ppd), max(ci_ppd)), xlab="Brood year", ylab="Recruits")
 lines(y=mn_ppd, x=d$brood_year, col="dodger blue")
@@ -424,39 +488,101 @@ abline(h=0, lty=2)
 polygon(x=c(d$brood_year, rev(d$brood_year)), y=c(ci_ppd[1,], rev(ci_ppd[2,])), col = adjustcolor('grey', alpha=0.5), border = NA)
 polygon(x=c(d$brood_year, rev(d$brood_year)), y=c(ci_ppd50[1,], rev(ci_ppd50[2,])), col = adjustcolor('grey', alpha=0.5), border = NA)
 polygon(x=c(d$brood_year, rev(d$brood_year)), y=c(ci_ppd10[1,], rev(ci_ppd10[2,])), col = adjustcolor('grey', alpha=0.5), border = NA)
-
 dev.off()
 
-# plot predicted vs observed
-png(filename="./figures/fig_predicted~observed_with_covariates_lognormal.png", width=1200, height=800, pointsize = 30)
+# Check distribution of posterior 
+rethinking::dens(ppd[1], xlim=c(0,50000))
+abline(v=mn_ppd[1], col="dodgerblue")
+abline(v=median_ppd[1], col="firebrick")
+polygon(x=c(ci_ppd[,1], rev(ci_ppd[,1])), y=c(0,0,1,1), col=adjustcolor("gray", alpha=0.5), border=NA)
+polygon(x=c(ci_ppd50[,1], rev(ci_ppd50[,1])), y=c(0,0,1,1), col=adjustcolor("gray", alpha=0.5), border=NA)
+polygon(x=c(ci_ppd10[,1], rev(ci_ppd10[,1])), y=c(0,0,1,1), col=adjustcolor("gray", alpha=0.5), border=NA)
+
+# Plot log(recruits/spaweners) time series with predicted intervals
+png(filename="./figures/fig_predicted_logRS_time_series.png", width=1200, height=800, pointsize = 30)
+par(mar=c(4,4,0,0) +0.1)
+plot(y=log(d$wild_recruits/d$total_spawners), x=d$brood_year, ylim=c(min(ci_pp_log_RS), max(ci_pp_log_RS)), xlab="Brood year", ylab="log(Recruits/Spawner)")
+lines(y=mn_pp_log_RS, x=d$brood_year, col="dodger blue")
+#lines(y=median_pp_log_RS, x=d$brood_year, col="firebrick")
+abline(h=0, lty=2)
+polygon(x=c(d$brood_year, rev(d$brood_year)), y=c(ci_pp_log_RS[1,], rev(ci_pp_log_RS[2,])), col = adjustcolor('grey', alpha=0.5), border = NA)
+polygon(x=c(d$brood_year, rev(d$brood_year)), y=c(ci_pp_log_RS_50[1,], rev(ci_pp_log_RS_50[2,])), col = adjustcolor('grey', alpha=0.5), border = NA)
+polygon(x=c(d$brood_year, rev(d$brood_year)), y=c(ci_pp_log_RS_10[1,], rev(ci_pp_log_RS_10[2,])), col = adjustcolor('grey', alpha=0.5), border = NA)
+dev.off()
+
+# plot predicted vs observed recruits
+png(filename="./figures/fig_predicted~observed_R.png", width=1200, height=800, pointsize = 30)
 par(mar=c(4,4,0,0) +0.1)
 plot(mn_ppd ~ d$wild_recruits, ylim=c(min(ci_ppd), max(ci_ppd)), xlab="Observed recruits", ylab="Predicted recruits")
 segments(x0= d$wild_recruits, y0=ci_ppd[1,], y1=ci_ppd[2,], lwd=1)
 abline(b=1, a=0, lwd=2, lty=2, col="orange")
 dev.off()
 
+# plot predicted vs observed log recruits
+png(filename="./figures/fig_predicted~observed_log_R.png", width=1200, height=800, pointsize = 30)
+par(mar=c(4,4,0,0) +0.1)
+plot(log(mn_ppd) ~ log(d$wild_recruits), ylim=c(min(log(ci_ppd)), max(log(ci_ppd))), xlab="log(Observed recruits)", ylab="log(Predicted recruits)")
+segments(x0= log(d$wild_recruits), y0=log(ci_ppd[1,]), y1=log(ci_ppd[2,]), lwd=1)
+abline(b=1, a=0, lwd=2, lty=2, col="orange")
+dev.off()
+
+# Plot predicted vs observed log(recruits/spawner)
+png(filename="./figures/fig_predicted~observed_log_RS.png", width=1200, height=800, pointsize = 30)
+par(mar=c(4,4,0,0) +0.1)
+plot(mn_pp_log_RS ~ log(d$wild_recruits/d$total_spawners), ylim=c(min(ci_pp_log_RS), max(ci_pp_log_RS)), xlab="Observed log(recruits/spawner)", ylab="Predicted log(recruits/spawner)")
+segments(x0= log(d$wild_recruits/d$total_spawners), y0=ci_pp_log_RS[1,], y1=ci_pp_log_RS[2,], lwd=1)
+abline(b=1, a=0, lwd=2, lty=2, col="orange")
+dev.off()
 
 # Look at residuals
+resid_logRS <- log(d$wild_recruits/d$total_spawners) - mn_pp_log_RS
+
+# Check normality of residuals 
 # histograms
 png("./figures/fig_resid_hist.png",  width=1200, height=800, pointsize = 30)
-hist(d$wild_recruits - mn_ppd, xlab="Residuals (observed - predicted)") # some right skewed ness
+hist(resid_logRS, xlab="Residuals (observed - predicted)", freq=FALSE)
+#add normal curve
+# curve(dnorm, add = TRUE)
+dev.off()
+
+# QQ plot
+png("./figures/fig_QQ_resid.png",  width=1200, height=800, pointsize = 30)
+qqnorm(resid_logRS)
+qqline(resid_logRS)
+dev.off() 
+
+# PP plot
+#get probability distribution for residuals
+probDist <- pnorm(resid_logRS)
+#create PP plot
+png("./figures/fig_PP_resid.png",  width=1200, height=800, pointsize = 30)
+plot(ppoints(length(resid_logRS)), sort(probDist), main = "PP Plot", xlab = "Observed Probability", ylab = "Expected Probability")
+#add diagonal line
+abline(0,1)
 dev.off()
 
 # Residuals ~ observed
 png("./figures/fig_resid~obs.png",  width=1200, height=800, pointsize = 30)
-plot(d$wild_recruits - mn_ppd ~ d$wild_recruits, ylab="Residuals", xlab="Observed recruits") 
+plot(resid_logRS ~ d$wild_recruits, ylab="Residuals", xlab="Observed recruits") 
 dev.off()
 
 # Residuals ~ predicted
 png("./figures/fig_resid_pred.png",  width=1200, height=800, pointsize = 30)
-plot(d$wild_recruits - mn_ppd ~ mn_ppd, ylab="Residuals", xlab="Predicted") 
+plot(resid_logRS ~ mn_pp_log_RS, ylab="Residuals", xlab="Predicted") 
 dev.off()
 
 # Residuals ~ year
 png("./figures/fig_resid_year.png",  width=1200, height=800, pointsize = 30)
-plot(d$wild_recruits - mn_ppd ~ d$brood_year, ylab="Residuals", xlab="Brood year") 
+plot(resid_logRS ~ d$brood_year, ylab="Residuals", xlab="Brood year") 
 dev.off()
 
+# Check for autocorrelation in residuals 
+png("./figures/fig_ACF_no_AR.png",  width=1200, height=800, pointsize = 30)
+acf(resid_logRS)
+dev.off()
+png("./figures/fig_PACF_no_AR.png",  width=1200, height=800, pointsize = 30)
+pacf(resid_logRS)
+dev.off()
 
 # # Slot machine figures - Recruits and spawners with covariates --------------
 
@@ -541,14 +667,18 @@ fig_hyd_covariates_full <- ggplot(fd_norm_sum[fd_norm_sum$year>=1958,], aes(y=va
   theme(axis.text.x=element_text(angle=90, vjust=0.5))
 fig_hyd_covariates_full
 
-fig_raw_hyd_covariates <- ggplot(fd_long[fd_long$year>=1958,], aes(y=value, x=year, colour=variable)) +
-  geom_line(size=2) +
+fig_raw_hyd_covariates <- ggplot(fd_long[fd_long$year>=1958 & !fd_long$variable=="aug_mean_flow_rear",], aes(y=value, x=year)) +
+  geom_line() +
   #geom_point(size=3) +
   #geom_point(data=d1_sum, aes(y=rep(1, nrow(d1_sum)), x=brood_year, size=round(recruits_per_spawner, 1)), colour="black") +
-  scale_colour_manual(values=c("darkred", "goldenrod1",  "turquoise1","salmon")) +
-  scale_x_continuous(breaks=seq(1958, max(fd_norm_sum$year), 1)) +
-  facet_wrap(~variable, scales="free_y") + 
+  #scale_colour_manual(values=c("darkred", "turquoise1","salmon")) +
+  #scale_x_continuous(breaks=seq(1958, max(fd_long$year), 1)) +
+  facet_wrap(~variable, scales="free_y", ncol=1) + 
   theme_bw() + 
   #stat_smooth() +
   theme(axis.text.x=element_text(angle=90, vjust=0.5))
 fig_raw_hyd_covariates 
+ggsave("./figures/fig_raw_hyd_covariates.png", fig_raw_hyd_covariates, width=10, height=12)
+
+# Aug flow only
+ggplot()
