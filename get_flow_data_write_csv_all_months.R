@@ -86,17 +86,51 @@ fd$month <- month(fd$Date)
 fd$decade <- round(fd$year, digits = -1)
 fd$water_year <- get_waterYear(fd$Date)
 fd$year_day <- yday(fd$Date)
+fd$water_yday <- get_waterYearDay(fd$Date)
+fd$even <- fd$water_year %% 2 == 0
+fd$water_yday_plus <- ifelse(fd$even==TRUE, fd$water_yday, fd$water_yday + 365)
+
+
   
 # get observations by month
 month_tab <- table(fd$year, fd$month)
 month_tab
 
-table(fd$year, fd$month)
+table(fd$water_year, fd$month)
 
 # Get vector of years with complete years
 d_full_yr <- d[d$year %in% as.numeric(names(which(table(fd$year)>=365))), ]
 
 write.csv(d_full_yr, "./data/nicola_yearly_flows_all_months.csv", row.names=FALSE)
+
+
+#Get number of low flow days in each water year
+# Get mean annual discharge for time series, only years with full records
+MAD <- mean(fd$Value[fd$year %in% as.numeric(names(which(table(fd$year)>=365)))], na.rm=TRUE)
+MAD_jul_sep <- mean(fd$Value[fd$year>1911 & fd$month %in% 7:9], na.rm=TRUE)
+MAD_dec_feb <- mean(fd$Value[fd$year %in% as.numeric(names(which(table(fd$year)>=365))) & fd$month %in% c(12, 1,2)], na.rm=TRUE)
+
+low_flow <- fd[fd$water_year %in% as.numeric(names(which(table(fd$water_year)>=365))), ] %>% group_by(water_year) %>% 
+  summarise(lf_days = sum(Value<0.15*MAD, na.rm=TRUE))
+            
+low_flow_jul_sep <- fd[fd$year>1911 & fd$month %in% 7:9, ] %>% group_by(water_year) %>%              
+            summarise(lf_days_jul_sep= sum(Value<0.15*MAD, na.rm=TRUE))
+
+low_flow_dec_feb <- fd[fd$water_year %in% as.numeric(names(which(table(fd$water_year)>=365))) & fd$month %in% c(11:12, 1:3), ] %>% group_by(water_year) %>%              
+  summarise(lf_days_dec_feb = sum(Value<0.15*MAD_dec_feb, na.rm=TRUE))
+
+low_flow1 <- merge(low_flow, low_flow_jul_sep, by="water_year", all=TRUE) 
+low_flow2 <- merge(low_flow1, low_flow_dec_feb, by="water_year", all=TRUE) 
+plot(low_flow2$lf_days ~ low_flow2$water_year)
+points(low_flow2$lf_days_jul_sep~ low_flow2$water_year, col="red")
+points(low_flow2$lf_days_dec_feb ~ low_flow2$water_year, col="blue")
+
+low_flow2$decade <- round(low_flow2$water_year, digits = -1)
+
+ggplot(low_flow2, aes(y=lf_days_jul_sep, x=water_year)) + 
+  geom_point() +
+  geom_path() +
+  theme_bw()
 
 # Plot full time series of hydrometric data, selecting for full falls/ Augusts/ winters as appropriate
 # Try polar plot of flow data
@@ -107,7 +141,12 @@ days_month
 month_breaks <- cumsum(days_month)-31 + 1
 month_labels <- format(ISOdatetime(2000,1:12,1,0,0,0),"%b")
 
-myPalette <- colorRamps::matlab.like2(10) # get colour palette
+days_month_water_yr <- days_month[c(9:12, 1:8)]
+month_breaks_water_yr <- cumsum(days_month_water_yr)-30+1
+month_labels_water_yr <- format(ISOdatetime(2000,c(9:12,1:8),1,0,0,0),"%b")
+
+
+myPalette <- colorRamps::matlab.like2(9) # get colour palette
 myPalette
 
 fig_hydro_circle <- fd %>% # [fd$year %in% as.numeric(names(which(table(fd$water_year)>=365))), ] %>%
@@ -123,6 +162,19 @@ fig_hydro_circle <- fd %>% # [fd$year %in% as.numeric(names(which(table(fd$water
   theme_bw()
 fig_hydro_circle
 ggsave("./figures/fig_hydro_circle.png", fig_hydro_circle)
+
+# Two years side by side for full life cycle
+fig_hydro_2yr <- fd %>% #fd[fd$water_year %in% as.numeric(names(which(table(fd$water_year)>=365))), ] %>%
+  ggplot(aes(y=Value, x=water_yday_plus, colour=factor(decade), group=water_year)) + 
+  geom_path(size=1.2, alpha=0.5) +
+  #stat_summary(fun.y="mean", geom="path", size=2, alpha=0.6) +
+  scale_colour_manual(values=myPalette) +
+  geom_point(data=fd[fd$water_year %in% as.numeric(names(which(table(fd$water_year)>=365))) & fd$Symbol=="B", ], aes(y=-5, x=water_yday_plus), colour="black", size=2, alpha=0.3) +
+  scale_x_continuous(breaks=c(month_breaks_water_yr,month_breaks_water_yr+365), labels=rep(month_labels_water_yr,2), minor_breaks=NULL) +
+  theme_bw()
+#fig_hydro_2yr 
+ggsave("./figures/fig_hydro_2yr.pdf", fig_hydro_2yr, width=14, height=8)
+
 
 # August flows
 fig_aug_flow_dist <- fd[fd$year %in% as.numeric(names(which(table(fd$year, fd$month)[,8]==31))) &  # get only years with complete augusts

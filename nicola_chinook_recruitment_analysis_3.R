@@ -363,7 +363,7 @@ dev.off()
 # Get model summary
 mod_sum <- round(summary(fit_ricker,pars= pars_graph, probs=c(0.1,0.9))$summary,6)
 mod_sum 
-
+write.csv(mod_sum, "estimates.csv")
 # Correlation 
 # pairs(fit_ricker, pars=pars_graph)
 
@@ -630,6 +630,17 @@ fig_recruits_spawners_covariates <-
   theme_bw()
 fig_recruits_spawners_covariates
 ggsave("./figures/fig_recruits_spawners_covariates.png", fig_recruits_spawners_covariates, width=12, height=8)
+
+# just plot recruits and spawners and ricker
+fig_recruits_spawners <-
+  ggplot(d1_sum, aes(y=wild_recruits, x=total_spawners)) +
+  geom_point() +
+  geom_text( aes( label=brood_year), nudge_y=500, colour="black") +
+  geom_line(data=ricker, aes(y=R, x=S), colour="black") + 
+  theme_bw()
+fig_recruits_spawners
+ggsave("./figures/fig_recruits_spawners.png", fig_recruits_spawners, width=12, height=8)
+
 
 # graph all normalized covariates time series
 fig_covariates <- ggplot(d1_sum, aes(y=value, x=brood_year, colour=variable)) +
