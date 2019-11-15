@@ -150,15 +150,16 @@ myPalette <- colorRamps::matlab.like2(9) # get colour palette
 myPalette
 
 fig_hydro_circle <- fd %>% # [fd$year %in% as.numeric(names(which(table(fd$water_year)>=365))), ] %>%
-  ggplot(aes(y=Value, x=year_day, colour=factor(decade), group=year)) + 
-  geom_path( size=1.2, alpha=0.5) +
+  # ggplot(aes(y=Value, x=year_day, colour=factor(decade), group=year)) + 
+  ggplot(aes(y=Value, x=year_day, group=year), colour="dodgerblue") + 
+  geom_path( alpha=0.5) +
   #stat_summary(fun.y="mean", geom="path", size=2, alpha=0.6) +
-  scale_colour_manual(values=myPalette) +
+  #scale_colour_manual(values=myPalette) +
   coord_polar() + 
-  scale_y_continuous(limits=c(-200,max(fd$Value)), expand=c(0,0)) +
+  scale_y_continuous(limits=c(-200,max(fd$Value)), expand=c(0,0), breaks=NULL) +
   #scale_y_continuous(limits=c(-300,100), expand=c(0,0)) +
   scale_x_continuous(breaks=month_breaks, labels=month_labels, minor_breaks=NULL) +
-  geom_hline(aes(yintercept=0)) +
+  geom_hline(aes(yintercept=0), colour="gray", linetype=3) +
   theme_bw()
 fig_hydro_circle
 ggsave("./figures/fig_hydro_circle.png", fig_hydro_circle)

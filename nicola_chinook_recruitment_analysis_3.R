@@ -12,6 +12,7 @@ library(stringr)
 library(lubridate)
 library(readxl)
 library(RColorBrewer)
+library(DMwR)
 rstan_options(auto_write=TRUE)
 
 rm(list=ls())
@@ -312,7 +313,7 @@ pars_track2 <- c("alpha", "beta","b1",
 #                       cores=2, pars=pars_track)
 
 # fit model no autocorrelation
-fit_ricker2 <- stan( file = "ricker_linear_logRS_noAR.stan", 
+fit_ricker2 <- stan( file = "ricker_linear_logRS_full.stan", 
                     data=dat, chains=3, iter=10000, init=inits2, 
                     #control=list(adapt_delta=0.9),
                     cores=2, pars=pars_track2)
@@ -320,7 +321,6 @@ fit_ricker2 <- stan( file = "ricker_linear_logRS_noAR.stan",
 fit_ricker <- fit_ricker2 # for no autocorrelatoin temp
 # make output into data frame
 post <- as.data.frame(fit_ricker)
-post <- as.data.frame(fit_ricker2)  # check no autocorrelation
 
 # get posterior predictions for recruits
 ppd <- post[, grep("pp_R", colnames(post))]
@@ -691,5 +691,61 @@ fig_raw_hyd_covariates <- ggplot(fd_long[fd_long$year>=1958 & !fd_long$variable=
 fig_raw_hyd_covariates 
 ggsave("./figures/fig_raw_hyd_covariates.png", fig_raw_hyd_covariates, width=10, height=12)
 
-# Aug flow only
-ggplot()
+# Figures showing change in recruitment with different august rearing flows ------------
+
+# equations: pred_log_RS = lnalpha - beta * S + b1 * ocean_surv + b2 * aug_mean_flow + b3 * sep_dec_max_flow + b4 * ice_days + b5 * aug_mean_flow_rear
+
+# Get mean and 90% confidence intervals for coefficient
+# Get vector of mean_aug_flow to predict for
+pred_flow <- seq(min(d$aug_mean_flow_rear), max(d$aug_mean_flow_rear), length.out = 1000)
+# write function to calculate a log(R/S) from each run of the model for a series of flows
+pred_mean_sp <- function(aug_flow) log(post$alpha) - post$beta * mean(d$total_spawners) + post$b5 * aug_flow
+pred_25_sp <- function(aug_flow) log(post$alpha) - post$beta * quantile(d$total_spawners, 0.25) + post$b5 * aug_flow
+pred_75_sp <- function(aug_flow) log(post$alpha) - post$beta * quantile(d$total_spawners, 0.75) + post$b5 * aug_flow
+
+# generate predictions for a series of flows
+pred_logRS_mean <- sapply(pred_flow, pred_mean_sp)
+pred_logRS_25 <- sapply(pred_flow, pred_25_sp)
+pred_logRS_75 <- sapply(pred_flow, pred_75_sp)
+
+pred_mean_mean <- apply(pred_logRS_mean, 2, mean)
+pred_mean_HPDI <- apply(pred_logRS_mean, 2, rethinking::HPDI, prob=0.9)
+pred_25_mean <- apply(pred_logRS_25, 2, mean)
+pred_25_HPDI <- apply(pred_logRS_25, 2, rethinking::HPDI, prob=0.9)
+pred_75_mean <- apply(pred_logRS_75, 2, mean)
+pred_75_HPDI <- apply(pred_logRS_75, 2, rethinking::HPDI, prob=0.9)
+
+# get x intercept: flow when log(R/S) is 0 (replacement)
+xint <- pred_flow[which.min(abs(pred_mean))]
+#xint <- -(log(mean(post$alpha)) - mean(post$beta) * mean(d$total_spawners)) / mean(post$b5)
+# get unscaled x intercept
+xint_unscaled <- DMwR::unscale(vals=xint, norm.data=scale(d_unscaled$aug_mean_flow_rear))
+
+# Make vectors for unscaled mean aug flow axis
+pred_flow_unscaled <- DMwR::unscale(vals=pred_flow, norm.data=scale(d_unscaled$aug_mean_flow_rear))
+  
+png(filename = "./figures/fig_logRS~flow.png", width=1000, height=800, pointsize = 25)
+par(mar=c(4,4,0.1,4) +0.1)
+#plot(log(d$wild_recruits/d$total_spawners) ~ d$aug_mean_flow_rear, xlab="Mean Aug flow cms (scaled)", ylab="log(R/S)")
+plot(pred_flow_unscaled, pred_mean_mean, type="l", lwd=1.4,  ylim=c(min(pred_75_HPDI), max(pred_25_HPDI)), xlab="Mean Aug flow cms (unscaled)", ylab="log(R/S)")
+abline(h=0, lty=3)
+#plot(log(d$wild_recruits/d$total_spawners) ~ d$aug_mean_flow_rear, xlab="Mean Aug flow cms", ylab="log(R/S)")
+#   for(j in 4400:4500) {
+ #    curve(log(post$alpha[j]) - post$beta[j] * mean(d$total_spawners) + post$b5[j] * x, 
+#           add=TRUE, lwd=2, col=adjustcolor("grey", 0.1))
+ #  }
+#curve(log(mean(post$alpha)) - mean(post$beta) * mean(d$total_spawners) + mean(post$b5) * x, add=TRUE)
+rethinking::shade(pred_mean_HPDI, pred_flow_unscaled, col=adjustcolor(col="black", alpha=0.2) )
+lines(pred_flow_unscaled, pred_25_mean, col="red", lwd=1.4)
+rethinking::shade(pred_25_HPDI, pred_flow_unscaled, col=adjustcolor(col="pink", alpha=0.3))
+lines(pred_flow_unscaled, pred_75_mean, col="dodgerblue", lwd=1.4)
+rethinking::shade(pred_75_HPDI, pred_flow_unscaled, col=adjustcolor(col="dodgerblue", alpha=0.2))
+#axis(3, at=seq(min(d$aug_mean_flow_rear), max(d$aug_mean_flow_rear), length.out=10), labels=round(seq(min(d_unscaled$aug_mean_flow_rear), max(d_unscaled$aug_mean_flow_rear), length.out=10),3), line=3)
+
+#axis(side=4)
+#mtext("Mean Aug flow cms (unscaled)", side=3, line=2)
+mtext("R/S", side=4, line=2)
+abline(v=xint_unscaled, col="gray", lty=4)
+
+dev.off()
+rethinking::dens(d_unscaled$aug_mean_flow_rear)
