@@ -298,41 +298,78 @@ fd$month <- month(fd$Date)
 fd$decade <- round(fd$year, digits = -1)
 
 # add period column for graphing density of flows for different time periods
-fd$period <- ifelse(fd$year<=1920, 1, 
-                    ifelse(fd$year <= 1968, 2,
-                    ifelse(fd$year <= 1979, 3,
-                    ifelse(fd$year <= 1991, 4, 
-                    ifelse(fd$year <= 2003, 5, 6)))))
+# fd$period <- ifelse(fd$year<=1920, 1, 
+#                     ifelse(fd$year <= 1968, 2,
+#                     ifelse(fd$year <= 1979, 3,
+#                     ifelse(fd$year <= 1991, 4, 
+#                     ifelse(fd$year <= 2003, 5, 6)))))
+
+fd$period <- ifelse(fd$year<=1968, 1, 
+                    ifelse(fd$year <= 1991, 2, 3))
 # check number of observations in each period
 table(fd$period[fd$month==8])
 str(fd)
 fd1 <- fd %>% group_by(period) %>% mutate(period_name = paste0(min(year), "-", max(year))) %>% ungroup()
 
+fd2 <- fd1 %>% filter(month==8) %>% group_by(year, period, month) %>% summarise(mean_aug_flow = mean(Value, na.rm=TRUE))
+table(fd2$period) # check number of years in each period bin
 # check that all augusts have full 31 days
 # write.csv(table(fd$year, fd$month), "decades.csv")
 str(fd)
 dens <- density(x=fd1$Value[fd1$month==8 ], na.rm=TRUE)
-cols <- c("darkblue", "dodgerblue", "green4", "darkgoldenrod1", "chocolate2", "firebrick")
+#cols <- c("darkblue", "dodgerblue", "green4", "darkgoldenrod1", "chocolate2", "firebrick")
+cols <- c("darkblue", "green4", "darkgoldenrod1")
 
-# plot aug flows distribution
-png(filename = "./figures/fig_logRS~flow.png", width=1200, height=1600, pointsize = 25)
+# Set up for cumulative proportion flows
+cdf1 <- ecdf(fd2$mean_aug_flow[fd2$period==1 ])
+cdf2 <- ecdf(fd2$mean_aug_flow[fd2$period==2 ])
+cdf3 <- ecdf(fd2$mean_aug_flow[fd2$period==3 ])
 
-par(mfrow=c(2,1), mar=c(0.1,4,0.1,4), bty="L")
-plot(density(x=fd1$Value[fd$month==8 & fd1$period==1 ], na.rm=TRUE), col=cols[1], main="", ylim=c(0,0.17), xlim=c(0,max(d_unscaled$aug_mean_flow_rear)), lwd=2 #, xaxt="n"
-     )
-for(i in 2:length(unique(fd1$period))) {
-lines(density(x=fd$Value[fd1$month==8 & fd1$period==i ], na.rm=TRUE), col=cols[i], lwd=2)
+x <- seq(0, max(fd2$mean_aug_flow), 0.1)
+p1 <- cdf1(x)
+p2 <- cdf2(x)
+p3 <- cdf3(x)
+
+# Plot with cumulative distribution
+png(filename = "./figures/fig_logRS~flow.png", width=8, height=11, units="in", res=300, pointsize=20)
+
+
+layout(matrix(c(1,2,3,3), nrow=4, ncol=1, byrow = TRUE))
+par(mar=c(0.1,4,0.1,4), bty="L")
+
+plot(x, p1, type="l", col=cols[1], ylab="Cumulative proportion", main="", xlim=c(0,max(d_unscaled$aug_mean_flow_rear)), lwd=2, las=1)
+lines(x, p2, col=cols[2], lwd=2)
+lines(x, p3, col=cols[3], lwd=2)
+abline(v=xint_unscaled, col="gray", lty=4, lwd=2)
+abline(h=0.5, lty=3)
+
+#png(filename = "./figures/fig_logRS~flow.png", width=1200, height=1600, pointsize = 25)
+
+#par(mfrow=c(2,1), mar=c(0.1,4,0.1,4), bty="L")
+#plot(density(x=fd1$Value[fd1$month==8 & fd1$period==1 ], na.rm=TRUE), col=cols[1], main="", ylim=c(0,0.17), xlim=c(0,max(d_unscaled$aug_mean_flow_rear)), lwd=2 #, xaxt="n"
+#for(i in 2:length(unique(fd1$period))) {
+#lines(density(x=fd$Value[fd1$month==8 & fd1$period==i ], na.rm=TRUE), col=cols[i], lwd=2)
+#}
+plot(density(x=fd2$mean_aug_flow[fd2$period==1 ], na.rm=TRUE), col=cols[1], main="", ylim=c(0,0.17), xlim=c(0,max(d_unscaled$aug_mean_flow_rear)), lwd=2, las=1  )
+for(i in 2:length(unique(fd2$period))) {
+lines(density(x=fd2$mean_aug_flow[fd2$period==i ], na.rm=TRUE), col=cols[i], lwd=2)
 }
 legend("topright", 
+       inset=c(0, 0.1),
        legend=unique(fd1$period_name),
        col=cols,
        pch="l",
-       bty="n")
+       bty="n" )
+abline(v=xint_unscaled, col="gray", lty=4, lwd=2)
+
+#hist(fd2$mean_aug_flow[fd2$period==1 ], col=adjustcolor( cols[1], alpha=0.5), breaks=8,  xlim=c(0,max(fd2$mean_aug_flow)))
+#hist(fd2$mean_aug_flow[fd2$period==2 ], col=adjustcolor( cols[2], alpha=0.5), add=TRUE, breaks=8,  xlim=c(0,max(fd2$mean_aug_flow)))
+#hist(fd2$mean_aug_flow[fd2$period==3 ], col=adjustcolor( cols[3], alpha=0.5), add= TRUE, breaks=8,  xlim=c(0,max(fd2$mean_aug_flow)))
 
 #plot effect of mean aug flow on recruitment
 #plot(log(d$wild_recruits/d$total_spawners) ~ d$aug_mean_flow_rear, xlab="Mean Aug flow cms (scaled)", ylab="log(R/S)")
 par(mar=c(4,4,0.1,4))
-plot(pred_flow_unscaled, pred_mean_mean, type="l", lwd=1.4,  ylim=c(min(pred_75_HPDI),  max(pred_25_HPDI)), xlim=c(0,max(d_unscaled$aug_mean_flow_rear)), xlab="Mean Aug flow cms (unscaled)", ylab="log(R/S)")
+plot(pred_flow_unscaled, pred_mean_mean, type="l", lwd=1.4,  ylim=c(min(pred_75_HPDI),  max(pred_25_HPDI)), xlim=c(0,max(d_unscaled$aug_mean_flow_rear)), xlab="Mean Aug flow cms (unscaled)", ylab="log(R/S)", las=1)
 abline(h=0, lty=3)
 #plot(log(d$wild_recruits/d$total_spawners) ~ d$aug_mean_flow_rear, xlab="Mean Aug flow cms", ylab="log(R/S)")
 #   for(j in 4400:4500) {
@@ -347,8 +384,8 @@ lines(pred_flow_unscaled, pred_75_mean, col="dodgerblue", lwd=1.4)
 rethinking::shade(pred_75_HPDI, pred_flow_unscaled, col=adjustcolor(col="dodgerblue", alpha=0.2))
 #axis(3, at=seq(min(d$aug_mean_flow_rear), max(d$aug_mean_flow_rear), length.out=10), labels=round(seq(min(d_unscaled$aug_mean_flow_rear), max(d_unscaled$aug_mean_flow_rear), length.out=10),3), line=3)
 
-axis(side=4, labels=sec_yax, at=log(sec_yax))
+axis(side=4, labels=sec_yax, at=log(sec_yax), las=1)
 mtext("R/S", side=4, line=2)
-abline(v=xint_unscaled, col="gray", lty=4)
+abline(v=xint_unscaled, col="gray", lty=4, lwd=2)
 
 dev.off()
