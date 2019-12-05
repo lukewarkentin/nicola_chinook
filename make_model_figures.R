@@ -170,7 +170,7 @@ polygon(x=c(ci_ppd10[,1], rev(ci_ppd10[,1])), y=c(0,0,1,1), col=adjustcolor("gra
 # Plot log(recruits/spaweners) time series with predicted intervals
 png(filename="./figures/fig_predicted_logRS_time_series.png", width=1200, height=800, pointsize = 30)
 par(mar=c(4,4,0,0) +0.1)
-plot(y=log(d$wild_recruits/d$total_spawners), x=d$brood_year, ylim=c(min(ci_pp_log_RS), max(ci_pp_log_RS)), xlab="Brood year", ylab="log(Recruits/Spawner)")
+plot(y=log(d$wild_recruits/d$total_spawners), x=d$brood_year, ylim=c(min(ci_pp_log_RS), max(ci_pp_log_RS)), xlab="Brood year", ylab=expression('log'[e]*'(Recruits/Spawner)'), las=1)
 lines(y=mn_pp_log_RS, x=d$brood_year, col="dodger blue")
 #lines(y=median_pp_log_RS, x=d$brood_year, col="firebrick")
 abline(h=0, lty=2)
@@ -187,6 +187,7 @@ segments(x0= d$wild_recruits, y0=ci_ppd[1,], y1=ci_ppd[2,], lwd=1)
 abline(b=1, a=0, lwd=2, lty=2, col="orange")
 dev.off()
 
+
 # plot predicted vs observed log recruits
 png(filename="./figures/fig_predicted~observed_log_R.png", width=1200, height=800, pointsize = 30)
 par(mar=c(4,4,0,0) +0.1)
@@ -194,6 +195,9 @@ plot(log(mn_ppd) ~ log(d$wild_recruits), ylim=c(min(log(ci_ppd)), max(log(ci_ppd
 segments(x0= log(d$wild_recruits), y0=log(ci_ppd[1,]), y1=log(ci_ppd[2,]), lwd=1)
 abline(b=1, a=0, lwd=2, lty=2, col="orange")
 dev.off()
+
+# get R2 value
+cor(log(d$wild_recruits/d$total_spawners), mn_pp_log_RS)^2
 
 # Plot predicted vs observed log(recruits/spawner)
 png(filename="./figures/fig_predicted~observed_log_RS.png", width=1200, height=800, pointsize = 30)
@@ -288,7 +292,7 @@ xint_unscaled <- DMwR::unscale(vals=xint, norm.data=scale(d_unscaled$aug_mean_fl
 pred_flow_unscaled <- DMwR::unscale(vals=pred_flow, norm.data=scale(d_unscaled$aug_mean_flow_rear))
 
 # get labels for second R/S y axis
-sec_yax <- c(0.5, c(1,2,4,8,10,12,14))
+sec_yax <- c(0.5, c(1,2,4,6,8,10,12,14))
 
 
 # Get all the flow data
@@ -331,7 +335,7 @@ p2 <- cdf2(x)
 p3 <- cdf3(x)
 
 # Plot with cumulative distribution
-png(filename = "./figures/fig_logRS~flow.png", width=8, height=11, units="in", res=300, pointsize=20)
+png(filename = "./figures/fig_logRS_flow.png", width=8, height=11, units="in", res=300, pointsize=20)
 
 
 layout(matrix(c(1,2,3,3), nrow=4, ncol=1, byrow = TRUE))
@@ -369,7 +373,7 @@ abline(v=xint_unscaled, col="gray", lty=4, lwd=2)
 #plot effect of mean aug flow on recruitment
 #plot(log(d$wild_recruits/d$total_spawners) ~ d$aug_mean_flow_rear, xlab="Mean Aug flow cms (scaled)", ylab="log(R/S)")
 par(mar=c(4,4,0.1,4))
-plot(pred_flow_unscaled, pred_mean_mean, type="l", lwd=1.4,  ylim=c(min(pred_75_HPDI),  max(pred_25_HPDI)), xlim=c(0,max(d_unscaled$aug_mean_flow_rear)), xlab="Mean Aug flow cms (unscaled)", ylab="log(R/S)", las=1)
+plot(pred_flow_unscaled, pred_mean_mean, type="l", lwd=1.4,  ylim=c(min(pred_75_HPDI),  max(pred_25_HPDI)), xlim=c(0,max(d_unscaled$aug_mean_flow_rear)), xlab=expression("Mean Aug flow in Nicola River (m"^3*"s"^-1*")"), ylab=expression("log"[e]*"(Recruits/Spawener)"), las=1)
 abline(h=0, lty=3)
 #plot(log(d$wild_recruits/d$total_spawners) ~ d$aug_mean_flow_rear, xlab="Mean Aug flow cms", ylab="log(R/S)")
 #   for(j in 4400:4500) {
@@ -385,7 +389,7 @@ rethinking::shade(pred_75_HPDI, pred_flow_unscaled, col=adjustcolor(col="dodgerb
 #axis(3, at=seq(min(d$aug_mean_flow_rear), max(d$aug_mean_flow_rear), length.out=10), labels=round(seq(min(d_unscaled$aug_mean_flow_rear), max(d_unscaled$aug_mean_flow_rear), length.out=10),3), line=3)
 
 axis(side=4, labels=sec_yax, at=log(sec_yax), las=1)
-mtext("R/S", side=4, line=2)
+mtext("Recruits/Spawner", side=4, line=2)
 abline(v=xint_unscaled, col="gray", lty=4, lwd=2)
 
 dev.off()

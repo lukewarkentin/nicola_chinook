@@ -97,9 +97,16 @@ month_tab <- table(fd$year, fd$month)
 month_tab
 
 table(fd$water_year, fd$month)
+table(fd$water_year, fd$Symbol)
+fd_full_yr <- fd[fd$year %in% as.numeric(names(which(table(fd$year)>=365))), ]
+table(fd_full_yr$year, fd_full_yr$Symbol)
 
 # Get vector of years with complete years
 d_full_yr <- d[d$year %in% as.numeric(names(which(table(fd$year)>=365))), ]
+
+ggplot(fd_full_yr, aes(y=Value, x=water_yday, colour=Symbol)) +
+  geom_point() +
+  facet_wrap(~year)
 
 write.csv(d_full_yr, "./data/nicola_yearly_flows_all_months.csv", row.names=FALSE)
 

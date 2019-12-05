@@ -286,7 +286,7 @@ master2$unmarked_returns2[which(lengths(master2$unmarked_returns2) == 0)] <- NA
 master2$unmarked_returns2 <- unlist(master2$unmarked_returns2)
 
 
-########## RIGHT NOW IT WORKS FOR EVERYHTING EXCEPT BROOD YEARS > 2014 and A COUPLE AGE 2 RETURNS THAT WE PROBABLY DON'T HAVE RETURN INDEXES FOR BECAUSE THERE WERE NO AGE 2 RETURND FROM THE COMPLEMENTARY RELEASE STAGE ##########
+########## RIGHT NOW IT WORKS FOR EVERYHTING EXCEPT BROOD YEARS > 2014 and A COUPLE AGE 2 RETURNS THAT WE PROBABLY DON'T HAVE RETURN INDEXES FOR BECAUSE THERE WERE NO AGE 2 RETURNS FROM THE COMPLEMENTARY RELEASE STAGE ##########
 
 #############
 # Get estimated unmarked returns for case 3 --------------
@@ -371,6 +371,14 @@ str(unmarked)
 
 unmarked_totals <- unmarked %>% group_by(brood_year, return_age) %>% summarise(unmarked_hatchery_returns= sum(unmarked_returns1, unmarked_returns2, unmarked_returns3, na.rm=TRUE))
 
+# make a data frame summarized by run year to use for 1992-1994 to correct for unmarked hatchery adults ( we don't have age-specific escapement data for these years)
+unmarked_total_sum <- unmarked_totals 
+unmarked_total_sum$run_year <- unmarked_total_sum$brood_year + unmarked_total_sum$return_age
+unmarked_total_sum1 <- unmarked_total_sum %>% group_by(run_year) %>% summarise(unmarked_hatchery_returns_all_ages = sum(unmarked_hatchery_returns))
+
+# save a csv 
+write.csv(unmarked_total_sum1, "./data/unmarked_hatchery_returns_by_year.csv", row.names=FALSE)
+
 # Read in brood table of escapement ----------  CHECK THAT THIS WORKS WITH LATEST DATA
 escapement <- read_excel("./data/Nicola (1995-2018) RiverSpawnerplusHatcheryEscbyAge and Clip status Nov 5 2019.xlsx", sheet=2, skip=2 )
 names(escapement)[1:3] <- c("run_year", "return_age", "brood_year")
@@ -397,6 +405,12 @@ escapement1$perc_true_wild_escapement[escapement1$perc_true_wild_escapement=="Na
 escapement1$true_wild_spawners <- round(escapement1$Corrected_Unclipped_River_Spawners * escapement1$perc_true_wild_escapement,0)
 # Get true hatchery spawners
 escapement1$true_hatchery_spawners <- escapement1$total_spawners - escapement1$true_wild_spawners
+
+# make summary of spawner data (which will have more years than recruitment, which will be limited by exploitation + years without full age returns)
+spawners_sum <- escapement1 %>% group_by(run_year) %>% summarise_at(.vars=c("total_spawners", "true_wild_spawners", "true_hatchery_spawners"), .funs=sum, na.rm=TRUE)
+names(spawners_sum) <- sub("true_", "", names(spawners_sum))
+# write to csv
+write.csv(spawners_sum, "./data/spawners_1995-2018.csv", row.names=FALSE)
 
 # visual check
 plot(escapement1$Corrected_Unclipped_Nicola_Escapement)
@@ -467,7 +481,6 @@ which(is.na(exploit1$exploitation_rate))  # check
 str(exploit1)
 
 # For years with CWT recoveries in the fishery but not in escapement, use expansion factor between wild and CWT fish of the other life stages
-
 
 # Replace 100% exploitation rate exploitation rate from expansion factor
 for(i in 1:nrow(exploit1)) { 

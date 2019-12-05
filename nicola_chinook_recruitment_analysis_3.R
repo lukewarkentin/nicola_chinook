@@ -20,18 +20,55 @@ rm(list=ls())
 # Data -------------
 brood <- read.csv("./data/nicola_brood_table.csv") # read in cohort data table with hatchery data
 # manipulate to get recruits
-spawners <- brood %>% group_by(run_year) %>% summarise(total_spawners=sum(total_spawners), wild_spawners=sum(true_wild_spawners))
+#spawners <- brood %>% group_by(run_year) %>% summarise(total_spawners=sum(total_spawners), wild_spawners=sum(true_wild_spawners))
 recruits <- brood %>% group_by(brood_year) %>% summarise(wild_recruits=sum(recruits))
+
+# read in spawner data 
+spawners <- read.csv("./data/spawners_1995-2018.csv")
+
 sd <- merge(recruits, spawners, by.x="brood_year", by.y="run_year", all=TRUE)
-sd$prop_wild <- sd$wild_spawners / sd$total_spawners
 
 # Read in calibrated peak count estimates (aerial counts? Check with Chuck Parken) from 1992 to 1994 with CV, and variance and CV for mark-recapture estimates from 1995-2018
-spawn_sup <- read.csv("./data/mark_recap_and_peak_count_estimates_with_variance_and_CV_Nicola.csv", strip.white = TRUE)
-names(spawn_sup) <- c("spawning_year", "total_spawners", "variance", "CV")
-# get total spawners for brood years 1992-1994, which was before mark recapture, into brood table
-sd[is.na(sd$total_spawners) & sd$brood_year %in% 1992:1994, "total_spawners" ] <- spawn_sup[spawn_sup$spawning_year %in% 1992:1994, "total_spawners"]
+spawn_sup <- read_excel("./data/Nicola Calibrated Esc with Revised AFC and unclipped (1975-1994) for Luke.xlsx", trim_ws = TRUE, skip=1)
+names(spawn_sup) <- c("spawning_year", "total_spawners", "clipped_spawners", "unclipped_spawners", "CV")
+# for years before hatchery influence, make clipped spawners 0 - CHECK WITH CHUCK - hatchery releases started 1984, so 3 year olds would return 1987, which is the first year we have unclipped and clipped counts 
+spawn_sup$clipped_spawners[is.na(spawn_sup$clipped_spawners)] <- 0
+# For years before hatchery influence, make unclipped spawners = total spawners
+spawn_sup$unclipped_spawners[is.na(spawn_sup$unclipped_spawners)] <- spawn_sup$total_spawners[is.na(spawn_sup$unclipped_spawners)]
+
+# Read in unmarked hatchery adults by year to correct spawners for 1992-1994
+uh <- read.csv("./data/unmarked_hatchery_returns_by_year.csv")
+# merge
+spawn_sup1 <- merge(spawn_sup, uh, by.x="spawning_year", by.y="run_year", all.x=TRUE)
+# make NA years 0
+spawn_sup1$unmarked_hatchery_returns_all_ages[is.na(spawn_sup1$unmarked_hatchery_returns_all_ages)] <- 0
+# subtract umarked adults from unclipped to get true wild spawners
+spawn_sup1$wild_spawners <- spawn_sup1$unclipped_spawners - spawn_sup1$unmarked_hatchery_returns_all_ages
+spawn_sup1$hatchery_spawners <- spawn_sup1$total_spawners- spawn_sup1$wild_spawners
+
+# read in data with CV for 1992-2018
+cv <- read.csv("./data/mark_recap_and_peak_count_estimates_with_variance_and_CV_Nicola.csv")
+names(cv) <- c("spawning_year", "spawners", "variance", "CV")
+
+# get total spawners and wild spawners for brood years 1992-1994, which was before mark recapture, into brood table
+sd[sd$brood_year %in% 1992:1994, "total_spawners" ] <- round(spawn_sup1[spawn_sup1$spawning_year %in% 1992:1994, "total_spawners"],0)
+sd[sd$brood_year %in% 1992:1994, "wild_spawners" ] <- round(spawn_sup1[spawn_sup1$spawning_year %in% 1992:1994, "wild_spawners"],0)
+sd[sd$brood_year %in% 1992:1994, "hatchery_spawners" ] <- round(spawn_sup1[spawn_sup1$spawning_year %in% 1992:1994, "hatchery_spawners"],0)
+
 # merge to get variance and CV into brood table
-sd <- merge(sd, spawn_sup[,c("spawning_year","variance", "CV")], by.x="brood_year", by.y="spawning_year", all.x=TRUE)
+sd <- merge(sd, cv[,c("spawning_year","CV")], by.x="brood_year", by.y="spawning_year", all.x=TRUE)
+# add hatchery spawners
+
+# combine old data and new data for graphing
+old_to_comb <- spawn_sup1[,c(1,2,5,7,8)]
+old_to_comb$wild_recruits <- NA
+names(old_to_comb)[grep("spawning_year", names(old_to_comb))] <- "brood_year"
+
+
+full_spawn <- rbind(old_to_comb, sd[sd$brood_year>=1995,])
+# write csv
+write.csv(full_spawn, "./data/full_spawner_time_series.csv", row.names=FALSE)
+
 # add recruits per spawner variable
 sd$recruits_per_spawner <- sd$wild_recruits / sd$total_spawners
 
@@ -52,8 +89,8 @@ d <- d[d$brood_year>=1992 & d$brood_year<=2013, ]
 
 # Centre and standardize all predictor variables
 d_unscaled <- d # make unscaled data frame for graphing raw predictor variables
-names(d)[9]
-d[ ,9:ncol(d)] <- as.numeric(scale(d[ ,9:ncol(d)])) # centre and standardize all predictor variables
+names(d)[8]
+d[ ,8:ncol(d)] <- as.numeric(scale(d[ ,8:ncol(d)])) # centre and standardize all predictor variables
 
 # save data to use in model to csv
 write.csv(d, "./data/model_data.csv")
@@ -96,7 +133,7 @@ fd_norm$ice_days_rev <- 1 - fd_norm$ice_days
 # Check Correlation between covariates
 # make vector of predictor variables to check correlation
 names(d_unscaled)
-pred_plot <- names(d_unscaled)[c(16,23,24,32, 39, 41)]
+pred_plot <- names(d_unscaled)[c(15,22,23,31, 40)]
 pred_plot
 png("./figures/fig_correlation_predictors.png", height=800, width=1200, pointsize=30)
 plot(d_unscaled[ , pred_plot])
@@ -242,9 +279,8 @@ ggplot(d_unscaled, aes(y=smolt_age3_survival, x=brood_year)) +
 # }
 
 # Declare data, use centered covariates ----------
-# dat for autocorrelation linear 
-#d <- d[-nrow(d), ] # temp remove 2013 from data for checking jan_feb_max_flow (don't have for brood year 2013)
-
+# Full model, no autocorrelation
+# dat 
 dat <- list(
   N = nrow(d),
   #log_R = log(d$wild_recruits),
@@ -256,27 +292,8 @@ dat <- list(
   aug_mean_flow_rear = d$aug_mean_flow_rear,
   ice_days = d$ice_days
 )
-
-# inits for autocorrelation
+# inits 
 inits= rep(
-  list(
-    list(#alpha=rnorm(1, mean= 3, sd= 1), #for non-linear
-         lnalpha = runif(1, 0,3), # for linear
-         beta = rnorm(1, 0.0002, 0.0001),
-         b1 = rnorm(1, mean=0, sd=0.1),
-         b2 = rnorm(1, mean=0, sd=0.1),
-         b3 = rnorm(1, mean=0, sd=0.1),
-         b4 = rnorm(1, mean=0, sd=0.1),
-         b5 = rnorm(1, mean=0, sd=0.1),
-         #b6 = rnorm(1, mean=0, sd=0.1),
-         tau =  runif(1, 0, 2),
-         phi = runif(1, -0.99, 0.99),
-         log_resid0 = rnorm(1, mean=0, sd = rgamma(1, shape=0.01, scale=0.01) * (1- runif(1, -0.99, 0.99)^2))
-    )), 3
-)
-
-# inits no autocorrelation
-inits2= rep(
   list(
     list(#alpha=rnorm(1, mean= 3, sd= 1), #for non-linear
       lnalpha = runif(1, 0,3), # for linear
@@ -286,56 +303,104 @@ inits2= rep(
       b3 = rnorm(1, mean=0, sd=0.1),
       b4 = rnorm(1, mean=0, sd=0.1),
       b5 = rnorm(1, mean=0, sd=0.1),
-      #b6 = rnorm(1, mean=0, sd=0.1),
       tau =  runif(1, 0, 2)
     )), 3
 )
-
-# fit ricker with autocorrelation
-# parameters for model 
+# pars to track
 pars_track <- c("alpha", "beta","b1",
-                "b2", 
-                "b3", 
-                "b4", 
-                "b5", 
-                #"b6", 
-                "tau", "phi", "log_resid0", "log_resid", "tau_red", "pp_log_RS", "pp_R",
-                "log_lik")
+                 "b2", 
+                 "b3", 
+                 "b4", 
+                 "b5", 
+                 "tau", "pp_log_RS", "pp_R", "log_lik")
 
-# pars to track - no autocorrelation
-pars_track2 <- c("alpha", "beta","b1",
-                "b2", 
-                "b3", 
-                "b4", 
-                "b5", 
-                #"b6", 
-                "tau", "pp_log_RS", "pp_R")
+# Seperate beta terms for hatchery and wild
+# dat 
+dat_2b <- list(
+  N = nrow(d),
+  log_RS = log(d$wild_recruits/d$total_spawners),
+  Sw = d$wild_spawners,
+  Sh = d$hatchery_spawners,
+  ocean_surv = d$smolt_age3_survival,
+  aug_mean_flow = d$aug_mean_flow,
+  sep_dec_max_flow = d$sep_dec_max_flow,
+  aug_mean_flow_rear = d$aug_mean_flow_rear,
+  ice_days = d$ice_days
+)
+# inits 
+inits_2b= rep(
+  list(
+    list(lnalpha = runif(1, 0,3), # for linear
+      betaH = rnorm(1, 0.0002, 0.0001),
+      betaW = rnorm(1, 0.0002, 0.0001),
+      b1 = rnorm(1, mean=0, sd=0.1),
+      b2 = rnorm(1, mean=0, sd=0.1),
+      b3 = rnorm(1, mean=0, sd=0.1),
+      b4 = rnorm(1, mean=0, sd=0.1),
+      b5 = rnorm(1, mean=0, sd=0.1),
+      tau =  runif(1, 0, 2)
+    )), 3
+)
+# pars to track
+pars_track_2b <- c("alpha", "betaW","betaH","b1",
+                 "b2", 
+                 "b3", 
+                 "b4", 
+                 "b5", 
+                 "tau", "pp_log_RS", "log_lik")
+
+# # Autocorrelation
+# # parameters for model 
+# pars_track <- c("alpha", "beta","b1",
+#                 "b2", 
+#                 "b3", 
+#                 "b4", 
+#                 "b5", 
+#                 "tau", "phi", "log_resid0", "log_resid", "tau_red", "pp_log_RS", "pp_R",
+#                 "log_lik")
 
 # # Fit stan model
+
+# fit model full model - no autocorrelation
+fit_ricker <- stan( file = "ricker_linear_logRS_full.stan", 
+                    data=dat, chains=3, iter=10000, init=inits, 
+                    #control=list(adapt_delta=0.9),
+                    cores=2, pars=pars_track)
+# Autocorrelation
 # fit_ricker <- stan( file = "ricker_linear_logRS.stan", 
 #                       data=dat, chains=3, iter=10000, init=inits, 
 #                       #control=list(adapt_delta=0.9),
 #                       cores=2, pars=pars_track)
 
-# fit model no autocorrelation
-fit_ricker <- stan( file = "ricker_linear_logRS_full.stan", 
-                    data=dat, chains=3, iter=10000, init=inits2, 
+# fit model 2 beta terms
+fit_ricker_2b <- stan( file = "ricker_linear_logRS_full_2b.stan", 
+                    data=dat_2b, chains=3, iter=10000, init=inits_2b, 
                     #control=list(adapt_delta=0.9),
-                    cores=2, pars=pars_track2)
+                    cores=2, pars=pars_track_2b)
 
 # make output into data frame
 post <- as.data.frame(fit_ricker)
 write.csv(post, "./data/posterior_samples.csv" )
 
 # parameters to graph
-pars_graph <- c("alpha", "beta","b1", 
+pars_graph <- c("alpha", 
+                "beta",
+                "b1", 
                 "b2", 
                 "b3", 
                 "b4", 
                 "b5", 
-                #"b6", 
-                "tau"#, 
-                #"phi", "log_resid0"
+                "tau"
+)
+pars_graph_2b <- c("alpha",
+                "betaH",
+                "betaW",
+                "b1",
+                "b2",
+                "b3",
+                "b4",
+                "b5",
+                "tau"
 )
 
 # Plot estimates and CIs
@@ -347,6 +412,15 @@ dev.off()
 png(filename="./figures/fig_estimates_CI_covariates_only.png", width=300, height=500)
 plot(fit_ricker, pars=pars_graph[3:7])
 dev.off()
+
+# Check wild vs. hatchery beta terms
+plot(fit_ricker, pars="beta")
+plot(fit_ricker_2b, pars=c("betaW", "betaH"))
+plot(fit_ricker_2b, pars=pars_graph_2b[4:8])
+
+mod_sum_2b <- round(summary(fit_ricker_2b,pars= pars_graph_2b, probs=c(0.1,0.9))$summary,6)
+mod_sum_2b
+
 
 # Get model summary
 mod_sum <- round(summary(fit_ricker,pars= pars_graph, probs=c(0.1,0.9))$summary,6)
@@ -467,4 +541,24 @@ fig_raw_hyd_covariates <- ggplot(fd_long[fd_long$year>=1958 & !fd_long$variable=
 fig_raw_hyd_covariates 
 ggsave("./figures/fig_raw_hyd_covariates.png", fig_raw_hyd_covariates, width=10, height=12)
 
+# Check difference between hatchery and wild spawners
+mod_sum
+mod_sum_2b
+plot(d$wild_recruits~ d$total_spawners)
+# add hatchery curve
+curve(mod_sum_2b[1,1]* x*exp(-mod_sum_2b[2,1]*x), col="red", add=TRUE)
+# curve(mod_sum_2b[1,1]* x*exp(-mod_sum_2b[2,4]*x), col="red", lty=2, add=TRUE)
+# curve(mod_sum_2b[1,1]* x*exp(-mod_sum_2b[2,5]*x), col="red", lty=2, add=TRUE)
 
+# add wild curve
+curve(mod_sum_2b[1,1]* x*exp(-mod_sum_2b[3,1]*x), col="blue", add=TRUE)
+# curve(mod_sum_2b[1,1]* x*exp(-mod_sum_2b[3,4]*x), col="blue", lty=2, add=TRUE)
+# curve(mod_sum_2b[1,1]* x*exp(-mod_sum_2b[3,5]*x), col="blue", lty=2, add=TRUE)
+
+# add curve from pooled model
+curve(mod_sum[1,1]* x*exp(-mod_sum[2,1]*x), add=TRUE)
+# curve(mod_sum[1,1]* x*exp(-mod_sum[2,4]*x), lty=2, add=TRUE)
+# curve(mod_sum[1,1]* x*exp(-mod_sum[2,5]*x), lty=2, add=TRUE)
+
+
+rethinking::compare(fit_ricker, fit_ricker_2b)

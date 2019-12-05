@@ -3,6 +3,8 @@ library(dplyr)
 library(ggplot2)
 library(rstan)
 library(rethinking)
+library(rstanarm)
+library(loo)
 rstan_options(auto_write=TRUE)
 
 rm(list=ls())
@@ -20,9 +22,9 @@ d <- read.csv("./data/model_data.csv")
 # 7: Full - spawning flows
 # 8: Full - fall flood
 # 9: Full - ice days
-#10: Full - rearing flows
+# 10: Full - rearing flows
+# 11: Full with only one beta
 # Full model
-
 
 # Declare data --------
 dat <- list(
@@ -202,6 +204,27 @@ pars_track_10 <- c("alpha", "beta","b1",
                      "b3", 
                      "b4",
                      "tau", "pp_log_RS", "pp_R", "log_lik")
+
+# Model 11---------
+inits_11 =rep(
+  list(
+    list(lnalpha = runif(1, 0,3), 
+         beta = rnorm(1, 0.0002, 0.0001),
+         b1 = rnorm(1, mean=0, sd=0.1),
+         b2 = rnorm(1, mean=0, sd=0.1),
+         b3 = rnorm(1, mean=0, sd=0.1),
+         b4 = rnorm(1, mean=0, sd=0.1),
+         b5 = rnorm(1, mean=0, sd=0.1),
+         tau =  runif(1, 0, 2)
+    )), 3
+)
+pars_track_11 <- c("alpha", "beta","b1",
+                   "b2", 
+                   "b3", 
+                   "b4",
+                   "tau", "pp_log_RS", "pp_R", "log_lik")
+
+
 # Full Model----------
 inits_full= rep(
   list(
@@ -259,10 +282,10 @@ fit_ricker_10 <- stan( file = "ricker_linear_logRS_10.stan",
 fit_ricker_full <- stan( file = "ricker_linear_logRS_full.stan", 
                          data=dat, chains=3, iter=10000, init=inits_full, 
                          cores=2, pars=pars_track_full)
-# Compare models ----------
+# Compare models ---------- CHANGE TO LOO COMPARE WITH RSTANARM PACKAGE
 #fits <- ls(pattern="fit_ricker")
 
-waic_tab <- compare(fit_ricker_base, fit_ricker_1, fit_ricker_2, fit_ricker_3, fit_ricker_4, fit_ricker_5, fit_ricker_6, fit_ricker_7, fit_ricker_8, fit_ricker_9, fit_ricker_10, fit_ricker_full)
+waic_tab <- rethinking::compare(fit_ricker_base, fit_ricker_1, fit_ricker_2, fit_ricker_3, fit_ricker_4, fit_ricker_5, fit_ricker_6, fit_ricker_7, fit_ricker_8, fit_ricker_9, fit_ricker_10, fit_ricker_full)
 png("./figures/fig_WAIC_model_compare.png", pointsize=20, width=500)
 plot(waic_tab, SE=TRUE, dSE=TRUE)
 dev.off()
@@ -279,6 +302,17 @@ dev.off()
 
 # Check beta only
 plot(coeftab(fit_ricker_base, fit_ricker_1, fit_ricker_2, fit_ricker_3, fit_ricker_4, fit_ricker_5, fit_ricker_6, fit_ricker_7, fit_ricker_8, fit_ricker_9, fit_ricker_10, fit_ricker_full), pars="beta")
+
+# Leave one out 
+models <-list(fit_ricker_base, fit_ricker_1, fit_ricker_2, fit_ricker_3, fit_ricker_4, fit_ricker_5, fit_ricker_6, fit_ricker_7, fit_ricker_8, fit_ricker_9, fit_ricker_10, fit_ricker_full)
+loovals <- lapply(models, loo)
+loo_mod_compare <- loo_compare(loovals)
+lootab <- as.data.frame(loo_mod_compare)
+lootab$model <- row.names(lootab)
+str(lootab)
+plot(x=lootab$elpd_loo, xaxt='n', xlab="")
+axis(1, at=seq_len(nrow(lootab)), labels = rownames(lootab), las=2)
+# result is that 
 
 # OBSOLETE: AUTOCORRELATION
 # inits_AR= rep(
