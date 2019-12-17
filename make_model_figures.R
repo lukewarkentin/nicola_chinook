@@ -38,6 +38,281 @@ ci_pp_log_RS_50 <- apply(pp_log_RS,2,rethinking::PI,prob=0.5) # get CI of predic
 ci_pp_log_RS_10 <- apply(pp_log_RS,2,rethinking::PI,prob=0.1) # get CI of predicted
 
 
+# Plot data with predicted intervals--------
+plot(d$wild_recruits ~ d$total_spawners , ylim=c(min(ci_ppd), max(c(ci_ppd, d$wild_recruits))))
+points(x=d$total_spawners, y=mn_ppd, add=TRUE, col="dodger blue")
+segments(x0= d$total_spawners, y0=ci_ppd[1,], y1=ci_ppd[2,], lwd=1, col="dodger blue")
+
+# Plot recruits time series with predicted intervals
+png(filename="./figures/fig_predicted_R_time_series.png", width=1200, height=800, pointsize = 30)
+par(mar=c(4,4,0,0) +0.1)
+plot(y=d$wild_recruits, x=d$brood_year, ylim=c(min(ci_ppd), max(ci_ppd)), xlab="Brood year", ylab="Recruits")
+lines(y=mn_ppd, x=d$brood_year, col="dodger blue")
+lines(y=median_ppd, x=d$brood_year, col="firebrick")
+abline(h=0, lty=2)
+polygon(x=c(d$brood_year, rev(d$brood_year)), y=c(ci_ppd[1,], rev(ci_ppd[2,])), col = adjustcolor('grey', alpha=0.5), border = NA)
+polygon(x=c(d$brood_year, rev(d$brood_year)), y=c(ci_ppd50[1,], rev(ci_ppd50[2,])), col = adjustcolor('grey', alpha=0.5), border = NA)
+polygon(x=c(d$brood_year, rev(d$brood_year)), y=c(ci_ppd10[1,], rev(ci_ppd10[2,])), col = adjustcolor('grey', alpha=0.5), border = NA)
+dev.off()
+
+# Check distribution of posterior 
+rethinking::dens(ppd[1], xlim=c(0,50000))
+abline(v=mn_ppd[1], col="dodgerblue")
+abline(v=median_ppd[1], col="firebrick")
+polygon(x=c(ci_ppd[,1], rev(ci_ppd[,1])), y=c(0,0,1,1), col=adjustcolor("gray", alpha=0.5), border=NA)
+polygon(x=c(ci_ppd50[,1], rev(ci_ppd50[,1])), y=c(0,0,1,1), col=adjustcolor("gray", alpha=0.5), border=NA)
+polygon(x=c(ci_ppd10[,1], rev(ci_ppd10[,1])), y=c(0,0,1,1), col=adjustcolor("gray", alpha=0.5), border=NA)
+
+# Plot log(recruits/spawners) time series with predicted intervals
+png(filename="./figures/fig_predicted_logRS_time_series.png", width=1200, height=800, pointsize = 30)
+par(mar=c(4,4,0,0) +0.1)
+plot(y=log(d$wild_recruits/d$total_spawners), x=d$brood_year, ylim=c(min(ci_pp_log_RS), max(ci_pp_log_RS)), xlab="Brood year", ylab=expression('log'[e]*'(Recruits/Spawner)'), las=1)
+lines(y=mn_pp_log_RS, x=d$brood_year, col="dodger blue")
+#lines(y=median_pp_log_RS, x=d$brood_year, col="firebrick")
+abline(h=0, lty=2)
+polygon(x=c(d$brood_year, rev(d$brood_year)), y=c(ci_pp_log_RS[1,], rev(ci_pp_log_RS[2,])), col = adjustcolor('grey', alpha=0.5), border = NA)
+polygon(x=c(d$brood_year, rev(d$brood_year)), y=c(ci_pp_log_RS_50[1,], rev(ci_pp_log_RS_50[2,])), col = adjustcolor('grey', alpha=0.5), border = NA)
+polygon(x=c(d$brood_year, rev(d$brood_year)), y=c(ci_pp_log_RS_10[1,], rev(ci_pp_log_RS_10[2,])), col = adjustcolor('grey', alpha=0.5), border = NA)
+dev.off()
+
+# plot predicted vs observed recruits
+png(filename="./figures/fig_predicted~observed_R.png", width=1200, height=800, pointsize = 30)
+par(mar=c(4,4,0,0) +0.1)
+plot(mn_ppd ~ d$wild_recruits, ylim=c(min(ci_ppd), max(ci_ppd)), xlab="Observed recruits", ylab="Predicted recruits")
+segments(x0= d$wild_recruits, y0=ci_ppd[1,], y1=ci_ppd[2,], lwd=1)
+abline(b=1, a=0, lwd=2, lty=2, col="orange")
+dev.off()
+
+
+# plot predicted vs observed log recruits
+png(filename="./figures/fig_predicted~observed_log_R.png", width=1200, height=800, pointsize = 30)
+par(mar=c(4,4,0,0) +0.1)
+plot(log(mn_ppd) ~ log(d$wild_recruits), ylim=c(min(log(ci_ppd)), max(log(ci_ppd))), xlab="log(Observed recruits)", ylab="log(Predicted recruits)")
+segments(x0= log(d$wild_recruits), y0=log(ci_ppd[1,]), y1=log(ci_ppd[2,]), lwd=1)
+abline(b=1, a=0, lwd=2, lty=2, col="orange")
+dev.off()
+
+# get R2 value
+cor(log(d$wild_recruits/d$total_spawners), mn_pp_log_RS)^2
+
+# Plot predicted vs observed log(recruits/spawner)
+png(filename="./figures/fig_predicted~observed_log_RS.png", width=1200, height=800, pointsize = 30)
+par(mar=c(4,4,0,0) +0.1)
+plot(mn_pp_log_RS ~ log(d$wild_recruits/d$total_spawners), ylim=c(min(ci_pp_log_RS), max(ci_pp_log_RS)), xlab="Observed log(recruits/spawner)", ylab="Predicted log(recruits/spawner)")
+segments(x0= log(d$wild_recruits/d$total_spawners), y0=ci_pp_log_RS[1,], y1=ci_pp_log_RS[2,], lwd=1)
+abline(b=1, a=0, lwd=2, lty=2, col="orange")
+dev.off()
+
+# Look at residuals
+resid_logRS <- log(d$wild_recruits/d$total_spawners) - mn_pp_log_RS
+
+# Check normality of residuals 
+# histograms
+png("./figures/fig_resid_hist.png",  width=1200, height=800, pointsize = 30)
+hist(resid_logRS, xlab="Residuals (observed - predicted)", freq=FALSE)
+#add normal curve
+# curve(dnorm, add = TRUE)
+dev.off()
+
+# QQ plot
+png("./figures/fig_QQ_resid.png",  width=1200, height=800, pointsize = 30)
+qqnorm(resid_logRS)
+qqline(resid_logRS)
+dev.off() 
+
+# PP plot
+#get probability distribution for residuals
+probDist <- pnorm(resid_logRS)
+#create PP plot
+png("./figures/fig_PP_resid.png",  width=1200, height=800, pointsize = 30)
+plot(ppoints(length(resid_logRS)), sort(probDist), main = "PP Plot", xlab = "Observed Probability", ylab = "Expected Probability")
+#add diagonal line
+abline(0,1)
+dev.off()
+
+# Residuals ~ observed
+png("./figures/fig_resid~obs.png",  width=1200, height=800, pointsize = 30)
+plot(resid_logRS ~ d$wild_recruits, ylab="Residuals", xlab="Observed recruits") 
+dev.off()
+
+# Residuals ~ predicted
+png("./figures/fig_resid_pred.png",  width=1200, height=800, pointsize = 30)
+plot(resid_logRS ~ mn_pp_log_RS, ylab="Residuals", xlab="Predicted") 
+dev.off()
+
+# Residuals ~ year
+png("./figures/fig_resid_year.png",  width=1200, height=800, pointsize = 30)
+plot(resid_logRS ~ d$brood_year, ylab="Residuals", xlab="Brood year") 
+dev.off()
+
+# Check for autocorrelation in residuals 
+png("./figures/fig_ACF_no_AR.png",  width=1200, height=800, pointsize = 30)
+acf(resid_logRS)
+dev.off()
+png("./figures/fig_PACF_no_AR.png",  width=1200, height=800, pointsize = 30)
+pacf(resid_logRS)
+dev.off()
+
+# Figures showing change in recruitment with different august rearing flows ------------
+
+# equations: pred_log_RS = lnalpha - beta * S + b1 * ocean_surv + b2 * aug_mean_flow + b3 * sep_dec_max_flow + b4 * ice_days + b5 * aug_mean_flow_rear
+
+# Get mean and 90% confidence intervals for coefficient
+# Get vector of mean_aug_flow to predict for
+pred_flow <- seq(min(d$aug_mean_flow_rear), max(d$aug_mean_flow_rear), length.out = 1000)
+# write function to calculate a log(R/S) from each run of the model for a series of flows
+pred_mean_sp <- function(aug_flow) log(post$alpha) - post$betaW * mean(d$wild_spawners) - post$betaH * mean(d$hatchery_spawners) + post$b5 * aug_flow
+pred_25_sp <- function(aug_flow) log(post$alpha) - post$betaW * quantile(d$wild_spawners, 0.25) - post$betaH * quantile(d$hatchery_spawners, 0.25) + post$b5 * aug_flow
+pred_75_sp <- function(aug_flow) log(post$alpha) - post$betaW * quantile(d$wild_spawners, 0.75) - post$betaH * quantile(d$hatchery_spawners, 0.75) + post$b5 * aug_flow
+
+# generate predictions for a series of flows
+pred_logRS_mean <- sapply(pred_flow, pred_mean_sp)
+pred_logRS_25 <- sapply(pred_flow, pred_25_sp)
+pred_logRS_75 <- sapply(pred_flow, pred_75_sp)
+
+pred_mean_mean <- apply(pred_logRS_mean, 2, mean)
+pred_mean_HPDI <- apply(pred_logRS_mean, 2, rethinking::HPDI, prob=0.9)
+pred_25_mean <- apply(pred_logRS_25, 2, mean)
+pred_25_HPDI <- apply(pred_logRS_25, 2, rethinking::HPDI, prob=0.9)
+pred_75_mean <- apply(pred_logRS_75, 2, mean)
+pred_75_HPDI <- apply(pred_logRS_75, 2, rethinking::HPDI, prob=0.9)
+
+# get x intercept: flow when log(R/S) is 0 (replacement)
+xint <- pred_flow[which.min(abs(pred_mean_mean))]
+#xint <- -(log(mean(post$alpha)) - mean(post$beta) * mean(d$total_spawners)) / mean(post$b5)
+# get unscaled x intercept
+xint_unscaled <- DMwR::unscale(vals=xint, norm.data=scale(d_unscaled$aug_mean_flow_rear))
+
+# Make vectors for unscaled mean aug flow axis
+pred_flow_unscaled <- DMwR::unscale(vals=pred_flow, norm.data=scale(d_unscaled$aug_mean_flow_rear))
+
+# get labels for second R/S y axis
+sec_yax <- c(0.5, c(1,2,4,6,8,10,12,14))
+
+
+# Get all the flow data
+fd <- hy_daily_flows(station_number= "08LG006")
+fd$year <- year(fd$Date)
+fd$month <- month(fd$Date)
+fd$decade <- round(fd$year, digits = -1)
+table(fd$year, fd$month)
+# add period column for graphing density of flows for different time periods
+# fd$period <- ifelse(fd$year<=1920, 1, 
+#                     ifelse(fd$year <= 1968, 2,
+#                     ifelse(fd$year <= 1979, 3,
+#                     ifelse(fd$year <= 1991, 4, 
+#                     ifelse(fd$year <= 2003, 5, 6)))))
+
+fd$period <- ifelse(fd$year<=1920, 1, 
+                    ifelse(fd$year <= 1974, 2, 
+                           ifelse(fd$year <= 1991, 3, 4)))
+# check number of observations in each period
+table(fd$period[fd$month==8])
+str(fd)
+fd1 <- fd %>% group_by(period) %>% mutate(period_name = paste0(min(year), "-", max(year), " (", n_distinct(year), " yrs)")) %>% ungroup()
+
+fd2 <- fd1 %>% filter(month==8) %>% group_by(year, period, month) %>% summarise(mean_aug_flow = mean(Value, na.rm=TRUE))
+table(fd2$period) # check number of years in each period bin
+# check that all augusts have full 31 days
+# write.csv(table(fd$year, fd$month), "decades.csv")
+str(fd)
+dens <- density(x=fd1$Value[fd1$month==8 ], na.rm=TRUE)
+#cols <- c("darkblue", "dodgerblue", "green4", "darkgoldenrod1", "chocolate2", "firebrick")
+cols <- c("darkblue", "green4", "darkgoldenrod1", "firebrick")
+
+# Set up for cumulative proportion flows
+cdf1 <- ecdf(fd2$mean_aug_flow[fd2$period==1 ])
+cdf2 <- ecdf(fd2$mean_aug_flow[fd2$period==2 ])
+cdf3 <- ecdf(fd2$mean_aug_flow[fd2$period==3 ])
+cdf4 <- ecdf(fd2$mean_aug_flow[fd2$period==4 ])
+
+x <- seq(0, max(fd2$mean_aug_flow), 0.1)
+p1 <- cdf1(x)
+p2 <- cdf2(x)
+p3 <- cdf3(x)
+p4 <- cdf4(x)
+                      
+
+
+# Plot with cumulative distribution----------
+png(filename = "./figures/fig_logRS_flow.png", width=8, height=11, units="in", res=300, pointsize=20)
+
+
+layout(matrix(c(1,2,3,3), nrow=4, ncol=1, byrow = TRUE))
+par(mar=c(0.1,4,0.1,4), bty="L")
+
+plot(x, p1, type="l", col=cols[1], ylab="Cumulative proportion", main="", xlim=c(0,max(d_unscaled$aug_mean_flow_rear)), lwd=2, las=1)
+lines(x, p2, col=cols[2], lwd=2)
+lines(x, p3, col=cols[3], lwd=2)
+lines(x, p4, col=cols[4], lwd=2)
+
+abline(v=xint_unscaled, col="gray", lty=4, lwd=2)
+abline(h=0.5, lty=3)
+
+#png(filename = "./figures/fig_logRS~flow.png", width=1200, height=1600, pointsize = 25)
+
+#par(mfrow=c(2,1), mar=c(0.1,4,0.1,4), bty="L")
+#plot(density(x=fd1$Value[fd1$month==8 & fd1$period==1 ], na.rm=TRUE), col=cols[1], main="", ylim=c(0,0.17), xlim=c(0,max(d_unscaled$aug_mean_flow_rear)), lwd=2 #, xaxt="n"
+#for(i in 2:length(unique(fd1$period))) {
+#lines(density(x=fd$Value[fd1$month==8 & fd1$period==i ], na.rm=TRUE), col=cols[i], lwd=2)
+#}
+plot(density(x=fd2$mean_aug_flow[fd2$period==1 ], na.rm=TRUE), col=cols[1], main="", ylim=c(0,0.17), xlim=c(0,max(d_unscaled$aug_mean_flow_rear)), lwd=2, las=1  )
+for(i in 2:length(unique(fd2$period))) {
+  lines(density(x=fd2$mean_aug_flow[fd2$period==i ], na.rm=TRUE), col=cols[i], lwd=2)
+}
+legend("topright", 
+       inset=c(0, 0.1),
+       legend=unique(fd1$period_name),
+       col=cols,
+       pch="l",
+       bty="n" )
+abline(v=xint_unscaled, col="gray", lty=4, lwd=2)
+
+#hist(fd2$mean_aug_flow[fd2$period==1 ], col=adjustcolor( cols[1], alpha=0.5), breaks=8,  xlim=c(0,max(fd2$mean_aug_flow)))
+#hist(fd2$mean_aug_flow[fd2$period==2 ], col=adjustcolor( cols[2], alpha=0.5), add=TRUE, breaks=8,  xlim=c(0,max(fd2$mean_aug_flow)))
+#hist(fd2$mean_aug_flow[fd2$period==3 ], col=adjustcolor( cols[3], alpha=0.5), add= TRUE, breaks=8,  xlim=c(0,max(fd2$mean_aug_flow)))
+
+#plot effect of mean aug flow on recruitment
+#plot(log(d$wild_recruits/d$total_spawners) ~ d$aug_mean_flow_rear, xlab="Mean Aug flow cms (scaled)", ylab="log(R/S)")
+par(mar=c(4,4,0.1,4))
+plot(pred_flow_unscaled, pred_mean_mean, type="l", lwd=1.4,  ylim=c(min(pred_75_HPDI),  max(pred_25_HPDI)), xlim=c(0,max(d_unscaled$aug_mean_flow_rear)), xlab=expression("Mean Aug flow in Nicola River (m"^3*"s"^-1*")"), ylab=expression("log"[e]*"(Recruits/Spawener)"), las=1)
+abline(h=0, lty=3)
+#plot(log(d$wild_recruits/d$total_spawners) ~ d$aug_mean_flow_rear, xlab="Mean Aug flow cms", ylab="log(R/S)")
+#   for(j in 4400:4500) {
+#    curve(log(post$alpha[j]) - post$beta[j] * mean(d$total_spawners) + post$b5[j] * x, 
+#           add=TRUE, lwd=2, col=adjustcolor("grey", 0.1))
+#  }
+#curve(log(mean(post$alpha)) - mean(post$beta) * mean(d$total_spawners) + mean(post$b5) * x, add=TRUE)
+rethinking::shade(pred_mean_HPDI, pred_flow_unscaled, col=adjustcolor(col="black", alpha=0.2) )
+lines(pred_flow_unscaled, pred_25_mean, col="red", lwd=1.4)
+rethinking::shade(pred_25_HPDI, pred_flow_unscaled, col=adjustcolor(col="pink", alpha=0.3))
+lines(pred_flow_unscaled, pred_75_mean, col="dodgerblue", lwd=1.4)
+rethinking::shade(pred_75_HPDI, pred_flow_unscaled, col=adjustcolor(col="dodgerblue", alpha=0.2))
+#axis(3, at=seq(min(d$aug_mean_flow_rear), max(d$aug_mean_flow_rear), length.out=10), labels=round(seq(min(d_unscaled$aug_mean_flow_rear), max(d_unscaled$aug_mean_flow_rear), length.out=10),3), line=3)
+
+legend("bottomright", 
+       inset=c(0, 0),
+       legend=c("75% quantile spawners", "Mean spawners", "25% quantile spawners"),
+       col=c("dodgerblue", "black", "pink"),
+       pch="l",
+       bty="n" )
+
+axis(side=4, labels=sec_yax, at=log(sec_yax), las=1)
+mtext("Recruits/Spawner", side=4, line=2, cex=0.7)
+abline(v=xint_unscaled, col="gray", lty=4, lwd=2)
+
+dev.off()
+
+
+# Changes in carrying capacity, etc. over hydrometric flow periods------
+# See Hilborn and Walters 2013 , Table 7.2 for equations 
+# calculate productivity using flow from different periods - note that other environmental parameters can be dropped since mean values are 0 since they are scaled. 
+#prod <- post$alpha*exp(post$b5 * BOOTSTRAP FLOW VALS HERE)
+# calculate carrying capacity
+CC <- log(post$alpha)/post$beta
+# calculate SMSY using posterior samples
+SMSY <- log(post$alpha)/post$beta * (0.5 - 0.07*log(post$alpha))
+
 
 
 
@@ -142,254 +417,3 @@ rethinking::dens(post$tau)
 #                                     mean(post$b3) * mean(d$mean_flow_aug_c)), col="dodger blue", lwd=3, add=TRUE)
 # dev.off()
 
-# plot data with predicted intervals
-plot(d$wild_recruits ~ d$total_spawners , ylim=c(min(ci_ppd), max(c(ci_ppd, d$wild_recruits))))
-points(x=d$total_spawners, y=mn_ppd, add=TRUE, col="dodger blue")
-segments(x0= d$total_spawners, y0=ci_ppd[1,], y1=ci_ppd[2,], lwd=1, col="dodger blue")
-
-# Plot recruits time series with predicted intervals
-png(filename="./figures/fig_predicted_R_time_series.png", width=1200, height=800, pointsize = 30)
-par(mar=c(4,4,0,0) +0.1)
-plot(y=d$wild_recruits, x=d$brood_year, ylim=c(min(ci_ppd), max(ci_ppd)), xlab="Brood year", ylab="Recruits")
-lines(y=mn_ppd, x=d$brood_year, col="dodger blue")
-lines(y=median_ppd, x=d$brood_year, col="firebrick")
-abline(h=0, lty=2)
-polygon(x=c(d$brood_year, rev(d$brood_year)), y=c(ci_ppd[1,], rev(ci_ppd[2,])), col = adjustcolor('grey', alpha=0.5), border = NA)
-polygon(x=c(d$brood_year, rev(d$brood_year)), y=c(ci_ppd50[1,], rev(ci_ppd50[2,])), col = adjustcolor('grey', alpha=0.5), border = NA)
-polygon(x=c(d$brood_year, rev(d$brood_year)), y=c(ci_ppd10[1,], rev(ci_ppd10[2,])), col = adjustcolor('grey', alpha=0.5), border = NA)
-dev.off()
-
-# Check distribution of posterior 
-rethinking::dens(ppd[1], xlim=c(0,50000))
-abline(v=mn_ppd[1], col="dodgerblue")
-abline(v=median_ppd[1], col="firebrick")
-polygon(x=c(ci_ppd[,1], rev(ci_ppd[,1])), y=c(0,0,1,1), col=adjustcolor("gray", alpha=0.5), border=NA)
-polygon(x=c(ci_ppd50[,1], rev(ci_ppd50[,1])), y=c(0,0,1,1), col=adjustcolor("gray", alpha=0.5), border=NA)
-polygon(x=c(ci_ppd10[,1], rev(ci_ppd10[,1])), y=c(0,0,1,1), col=adjustcolor("gray", alpha=0.5), border=NA)
-
-# Plot log(recruits/spaweners) time series with predicted intervals
-png(filename="./figures/fig_predicted_logRS_time_series.png", width=1200, height=800, pointsize = 30)
-par(mar=c(4,4,0,0) +0.1)
-plot(y=log(d$wild_recruits/d$total_spawners), x=d$brood_year, ylim=c(min(ci_pp_log_RS), max(ci_pp_log_RS)), xlab="Brood year", ylab=expression('log'[e]*'(Recruits/Spawner)'), las=1)
-lines(y=mn_pp_log_RS, x=d$brood_year, col="dodger blue")
-#lines(y=median_pp_log_RS, x=d$brood_year, col="firebrick")
-abline(h=0, lty=2)
-polygon(x=c(d$brood_year, rev(d$brood_year)), y=c(ci_pp_log_RS[1,], rev(ci_pp_log_RS[2,])), col = adjustcolor('grey', alpha=0.5), border = NA)
-polygon(x=c(d$brood_year, rev(d$brood_year)), y=c(ci_pp_log_RS_50[1,], rev(ci_pp_log_RS_50[2,])), col = adjustcolor('grey', alpha=0.5), border = NA)
-polygon(x=c(d$brood_year, rev(d$brood_year)), y=c(ci_pp_log_RS_10[1,], rev(ci_pp_log_RS_10[2,])), col = adjustcolor('grey', alpha=0.5), border = NA)
-dev.off()
-
-# plot predicted vs observed recruits
-png(filename="./figures/fig_predicted~observed_R.png", width=1200, height=800, pointsize = 30)
-par(mar=c(4,4,0,0) +0.1)
-plot(mn_ppd ~ d$wild_recruits, ylim=c(min(ci_ppd), max(ci_ppd)), xlab="Observed recruits", ylab="Predicted recruits")
-segments(x0= d$wild_recruits, y0=ci_ppd[1,], y1=ci_ppd[2,], lwd=1)
-abline(b=1, a=0, lwd=2, lty=2, col="orange")
-dev.off()
-
-
-# plot predicted vs observed log recruits
-png(filename="./figures/fig_predicted~observed_log_R.png", width=1200, height=800, pointsize = 30)
-par(mar=c(4,4,0,0) +0.1)
-plot(log(mn_ppd) ~ log(d$wild_recruits), ylim=c(min(log(ci_ppd)), max(log(ci_ppd))), xlab="log(Observed recruits)", ylab="log(Predicted recruits)")
-segments(x0= log(d$wild_recruits), y0=log(ci_ppd[1,]), y1=log(ci_ppd[2,]), lwd=1)
-abline(b=1, a=0, lwd=2, lty=2, col="orange")
-dev.off()
-
-# get R2 value
-cor(log(d$wild_recruits/d$total_spawners), mn_pp_log_RS)^2
-
-# Plot predicted vs observed log(recruits/spawner)
-png(filename="./figures/fig_predicted~observed_log_RS.png", width=1200, height=800, pointsize = 30)
-par(mar=c(4,4,0,0) +0.1)
-plot(mn_pp_log_RS ~ log(d$wild_recruits/d$total_spawners), ylim=c(min(ci_pp_log_RS), max(ci_pp_log_RS)), xlab="Observed log(recruits/spawner)", ylab="Predicted log(recruits/spawner)")
-segments(x0= log(d$wild_recruits/d$total_spawners), y0=ci_pp_log_RS[1,], y1=ci_pp_log_RS[2,], lwd=1)
-abline(b=1, a=0, lwd=2, lty=2, col="orange")
-dev.off()
-
-# Look at residuals
-resid_logRS <- log(d$wild_recruits/d$total_spawners) - mn_pp_log_RS
-
-# Check normality of residuals 
-# histograms
-png("./figures/fig_resid_hist.png",  width=1200, height=800, pointsize = 30)
-hist(resid_logRS, xlab="Residuals (observed - predicted)", freq=FALSE)
-#add normal curve
-# curve(dnorm, add = TRUE)
-dev.off()
-
-# QQ plot
-png("./figures/fig_QQ_resid.png",  width=1200, height=800, pointsize = 30)
-qqnorm(resid_logRS)
-qqline(resid_logRS)
-dev.off() 
-
-# PP plot
-#get probability distribution for residuals
-probDist <- pnorm(resid_logRS)
-#create PP plot
-png("./figures/fig_PP_resid.png",  width=1200, height=800, pointsize = 30)
-plot(ppoints(length(resid_logRS)), sort(probDist), main = "PP Plot", xlab = "Observed Probability", ylab = "Expected Probability")
-#add diagonal line
-abline(0,1)
-dev.off()
-
-# Residuals ~ observed
-png("./figures/fig_resid~obs.png",  width=1200, height=800, pointsize = 30)
-plot(resid_logRS ~ d$wild_recruits, ylab="Residuals", xlab="Observed recruits") 
-dev.off()
-
-# Residuals ~ predicted
-png("./figures/fig_resid_pred.png",  width=1200, height=800, pointsize = 30)
-plot(resid_logRS ~ mn_pp_log_RS, ylab="Residuals", xlab="Predicted") 
-dev.off()
-
-# Residuals ~ year
-png("./figures/fig_resid_year.png",  width=1200, height=800, pointsize = 30)
-plot(resid_logRS ~ d$brood_year, ylab="Residuals", xlab="Brood year") 
-dev.off()
-
-# Check for autocorrelation in residuals 
-png("./figures/fig_ACF_no_AR.png",  width=1200, height=800, pointsize = 30)
-acf(resid_logRS)
-dev.off()
-png("./figures/fig_PACF_no_AR.png",  width=1200, height=800, pointsize = 30)
-pacf(resid_logRS)
-dev.off()
-
-
-# Figures showing change in recruitment with different august rearing flows ------------
-
-# equations: pred_log_RS = lnalpha - beta * S + b1 * ocean_surv + b2 * aug_mean_flow + b3 * sep_dec_max_flow + b4 * ice_days + b5 * aug_mean_flow_rear
-
-# Get mean and 90% confidence intervals for coefficient
-# Get vector of mean_aug_flow to predict for
-pred_flow <- seq(min(d$aug_mean_flow_rear), max(d$aug_mean_flow_rear), length.out = 1000)
-# write function to calculate a log(R/S) from each run of the model for a series of flows
-pred_mean_sp <- function(aug_flow) log(post$alpha) - post$beta * mean(d$total_spawners) + post$b5 * aug_flow
-pred_25_sp <- function(aug_flow) log(post$alpha) - post$beta * quantile(d$total_spawners, 0.25) + post$b5 * aug_flow
-pred_75_sp <- function(aug_flow) log(post$alpha) - post$beta * quantile(d$total_spawners, 0.75) + post$b5 * aug_flow
-
-# generate predictions for a series of flows
-pred_logRS_mean <- sapply(pred_flow, pred_mean_sp)
-pred_logRS_25 <- sapply(pred_flow, pred_25_sp)
-pred_logRS_75 <- sapply(pred_flow, pred_75_sp)
-
-pred_mean_mean <- apply(pred_logRS_mean, 2, mean)
-pred_mean_HPDI <- apply(pred_logRS_mean, 2, rethinking::HPDI, prob=0.9)
-pred_25_mean <- apply(pred_logRS_25, 2, mean)
-pred_25_HPDI <- apply(pred_logRS_25, 2, rethinking::HPDI, prob=0.9)
-pred_75_mean <- apply(pred_logRS_75, 2, mean)
-pred_75_HPDI <- apply(pred_logRS_75, 2, rethinking::HPDI, prob=0.9)
-
-# get x intercept: flow when log(R/S) is 0 (replacement)
-xint <- pred_flow[which.min(abs(pred_mean_mean))]
-#xint <- -(log(mean(post$alpha)) - mean(post$beta) * mean(d$total_spawners)) / mean(post$b5)
-# get unscaled x intercept
-xint_unscaled <- DMwR::unscale(vals=xint, norm.data=scale(d_unscaled$aug_mean_flow_rear))
-
-# Make vectors for unscaled mean aug flow axis
-pred_flow_unscaled <- DMwR::unscale(vals=pred_flow, norm.data=scale(d_unscaled$aug_mean_flow_rear))
-
-# get labels for second R/S y axis
-sec_yax <- c(0.5, c(1,2,4,6,8,10,12,14))
-
-
-# Get all the flow data
-fd <- hy_daily_flows(station_number= "08LG006")
-fd$year <- year(fd$Date)
-fd$month <- month(fd$Date)
-fd$decade <- round(fd$year, digits = -1)
-
-# add period column for graphing density of flows for different time periods
-# fd$period <- ifelse(fd$year<=1920, 1, 
-#                     ifelse(fd$year <= 1968, 2,
-#                     ifelse(fd$year <= 1979, 3,
-#                     ifelse(fd$year <= 1991, 4, 
-#                     ifelse(fd$year <= 2003, 5, 6)))))
-
-fd$period <- ifelse(fd$year<=1968, 1, 
-                    ifelse(fd$year <= 1991, 2, 3))
-# check number of observations in each period
-table(fd$period[fd$month==8])
-str(fd)
-fd1 <- fd %>% group_by(period) %>% mutate(period_name = paste0(min(year), "-", max(year))) %>% ungroup()
-
-fd2 <- fd1 %>% filter(month==8) %>% group_by(year, period, month) %>% summarise(mean_aug_flow = mean(Value, na.rm=TRUE))
-table(fd2$period) # check number of years in each period bin
-# check that all augusts have full 31 days
-# write.csv(table(fd$year, fd$month), "decades.csv")
-str(fd)
-dens <- density(x=fd1$Value[fd1$month==8 ], na.rm=TRUE)
-#cols <- c("darkblue", "dodgerblue", "green4", "darkgoldenrod1", "chocolate2", "firebrick")
-cols <- c("darkblue", "green4", "darkgoldenrod1")
-
-# Set up for cumulative proportion flows
-cdf1 <- ecdf(fd2$mean_aug_flow[fd2$period==1 ])
-cdf2 <- ecdf(fd2$mean_aug_flow[fd2$period==2 ])
-cdf3 <- ecdf(fd2$mean_aug_flow[fd2$period==3 ])
-
-x <- seq(0, max(fd2$mean_aug_flow), 0.1)
-p1 <- cdf1(x)
-p2 <- cdf2(x)
-p3 <- cdf3(x)
-
-# Plot with cumulative distribution
-png(filename = "./figures/fig_logRS_flow.png", width=8, height=11, units="in", res=300, pointsize=20)
-
-
-layout(matrix(c(1,2,3,3), nrow=4, ncol=1, byrow = TRUE))
-par(mar=c(0.1,4,0.1,4), bty="L")
-
-plot(x, p1, type="l", col=cols[1], ylab="Cumulative proportion", main="", xlim=c(0,max(d_unscaled$aug_mean_flow_rear)), lwd=2, las=1)
-lines(x, p2, col=cols[2], lwd=2)
-lines(x, p3, col=cols[3], lwd=2)
-abline(v=xint_unscaled, col="gray", lty=4, lwd=2)
-abline(h=0.5, lty=3)
-
-#png(filename = "./figures/fig_logRS~flow.png", width=1200, height=1600, pointsize = 25)
-
-#par(mfrow=c(2,1), mar=c(0.1,4,0.1,4), bty="L")
-#plot(density(x=fd1$Value[fd1$month==8 & fd1$period==1 ], na.rm=TRUE), col=cols[1], main="", ylim=c(0,0.17), xlim=c(0,max(d_unscaled$aug_mean_flow_rear)), lwd=2 #, xaxt="n"
-#for(i in 2:length(unique(fd1$period))) {
-#lines(density(x=fd$Value[fd1$month==8 & fd1$period==i ], na.rm=TRUE), col=cols[i], lwd=2)
-#}
-plot(density(x=fd2$mean_aug_flow[fd2$period==1 ], na.rm=TRUE), col=cols[1], main="", ylim=c(0,0.17), xlim=c(0,max(d_unscaled$aug_mean_flow_rear)), lwd=2, las=1  )
-for(i in 2:length(unique(fd2$period))) {
-lines(density(x=fd2$mean_aug_flow[fd2$period==i ], na.rm=TRUE), col=cols[i], lwd=2)
-}
-legend("topright", 
-       inset=c(0, 0.1),
-       legend=unique(fd1$period_name),
-       col=cols,
-       pch="l",
-       bty="n" )
-abline(v=xint_unscaled, col="gray", lty=4, lwd=2)
-
-#hist(fd2$mean_aug_flow[fd2$period==1 ], col=adjustcolor( cols[1], alpha=0.5), breaks=8,  xlim=c(0,max(fd2$mean_aug_flow)))
-#hist(fd2$mean_aug_flow[fd2$period==2 ], col=adjustcolor( cols[2], alpha=0.5), add=TRUE, breaks=8,  xlim=c(0,max(fd2$mean_aug_flow)))
-#hist(fd2$mean_aug_flow[fd2$period==3 ], col=adjustcolor( cols[3], alpha=0.5), add= TRUE, breaks=8,  xlim=c(0,max(fd2$mean_aug_flow)))
-
-#plot effect of mean aug flow on recruitment
-#plot(log(d$wild_recruits/d$total_spawners) ~ d$aug_mean_flow_rear, xlab="Mean Aug flow cms (scaled)", ylab="log(R/S)")
-par(mar=c(4,4,0.1,4))
-plot(pred_flow_unscaled, pred_mean_mean, type="l", lwd=1.4,  ylim=c(min(pred_75_HPDI),  max(pred_25_HPDI)), xlim=c(0,max(d_unscaled$aug_mean_flow_rear)), xlab=expression("Mean Aug flow in Nicola River (m"^3*"s"^-1*")"), ylab=expression("log"[e]*"(Recruits/Spawener)"), las=1)
-abline(h=0, lty=3)
-#plot(log(d$wild_recruits/d$total_spawners) ~ d$aug_mean_flow_rear, xlab="Mean Aug flow cms", ylab="log(R/S)")
-#   for(j in 4400:4500) {
-#    curve(log(post$alpha[j]) - post$beta[j] * mean(d$total_spawners) + post$b5[j] * x, 
-#           add=TRUE, lwd=2, col=adjustcolor("grey", 0.1))
-#  }
-#curve(log(mean(post$alpha)) - mean(post$beta) * mean(d$total_spawners) + mean(post$b5) * x, add=TRUE)
-rethinking::shade(pred_mean_HPDI, pred_flow_unscaled, col=adjustcolor(col="black", alpha=0.2) )
-lines(pred_flow_unscaled, pred_25_mean, col="red", lwd=1.4)
-rethinking::shade(pred_25_HPDI, pred_flow_unscaled, col=adjustcolor(col="pink", alpha=0.3))
-lines(pred_flow_unscaled, pred_75_mean, col="dodgerblue", lwd=1.4)
-rethinking::shade(pred_75_HPDI, pred_flow_unscaled, col=adjustcolor(col="dodgerblue", alpha=0.2))
-#axis(3, at=seq(min(d$aug_mean_flow_rear), max(d$aug_mean_flow_rear), length.out=10), labels=round(seq(min(d_unscaled$aug_mean_flow_rear), max(d_unscaled$aug_mean_flow_rear), length.out=10),3), line=3)
-
-axis(side=4, labels=sec_yax, at=log(sec_yax), las=1)
-mtext("Recruits/Spawner", side=4, line=2)
-abline(v=xint_unscaled, col="gray", lty=4, lwd=2)
-
-dev.off()

@@ -43,8 +43,12 @@ spawn_sup1 <- merge(spawn_sup, uh, by.x="spawning_year", by.y="run_year", all.x=
 # make NA years 0
 spawn_sup1$unmarked_hatchery_returns_all_ages[is.na(spawn_sup1$unmarked_hatchery_returns_all_ages)] <- 0
 # subtract umarked adults from unclipped to get true wild spawners
-spawn_sup1$wild_spawners <- spawn_sup1$unclipped_spawners - spawn_sup1$unmarked_hatchery_returns_all_ages
-spawn_sup1$hatchery_spawners <- spawn_sup1$total_spawners- spawn_sup1$wild_spawners
+spawn_sup1$wild_spawners <- round(spawn_sup1$unclipped_spawners - spawn_sup1$unmarked_hatchery_returns_all_ages, 0)
+# if les than 0, make it 0 for wild spawners
+spawn_sup1$wild_spawners <- ifelse(spawn_sup1$wild_spawners<0, 0, spawn_sup1$wild_spawners)
+# get hatchery spawners
+spawn_sup1$hatchery_spawners <- round(spawn_sup1$total_spawners- spawn_sup1$wild_spawners,0)
+
 
 # read in data with CV for 1992-2018
 cv <- read.csv("./data/mark_recap_and_peak_count_estimates_with_variance_and_CV_Nicola.csv")
@@ -64,9 +68,9 @@ old_to_comb <- spawn_sup1[,c(1,2,5,7,8)]
 old_to_comb$wild_recruits <- NA
 names(old_to_comb)[grep("spawning_year", names(old_to_comb))] <- "brood_year"
 
-
+# bind rows of old spawner data with new spawner data
 full_spawn <- rbind(old_to_comb, sd[sd$brood_year>=1995,])
-# write csv
+# write csv, for graphing full time series
 write.csv(full_spawn, "./data/full_spawner_time_series.csv", row.names=FALSE)
 
 # add recruits per spawner variable
@@ -379,8 +383,8 @@ fit_ricker_2b <- stan( file = "ricker_linear_logRS_full_2b.stan",
                     cores=2, pars=pars_track_2b)
 
 # make output into data frame
-post <- as.data.frame(fit_ricker)
-write.csv(post, "./data/posterior_samples.csv" )
+post <- as.data.frame(fit_ricker_2b)
+write.csv(post, "./data/posterior_samples.csv")
 
 # parameters to graph
 pars_graph <- c("alpha", 
