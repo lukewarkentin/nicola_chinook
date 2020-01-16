@@ -283,7 +283,6 @@ ggplot(d_unscaled, aes(y=smolt_age3_survival, x=brood_year)) +
 # }
 
 # Declare data, use centered covariates ----------
-# Full model, no autocorrelation
 # dat 
 dat <- list(
   N = nrow(d),
@@ -296,6 +295,8 @@ dat <- list(
   aug_mean_flow_rear = d$aug_mean_flow_rear,
   ice_days = d$ice_days
 )
+
+# Full model 11, no autocorrelation ---------
 # inits 
 inits= rep(
   list(
@@ -318,42 +319,29 @@ pars_track <- c("alpha", "beta","b1",
                  "b5", 
                  "tau", "pp_log_RS", "pp_R", "log_lik")
 
-# Seperate beta terms for hatchery and wild
-# dat 
-dat_2b <- list(
-  N = nrow(d),
-  log_RS = log(d$wild_recruits/d$total_spawners),
-  Sw = d$wild_spawners,
-  Sh = d$hatchery_spawners,
-  ocean_surv = d$smolt_age3_survival,
-  aug_mean_flow = d$aug_mean_flow,
-  sep_dec_max_flow = d$sep_dec_max_flow,
-  aug_mean_flow_rear = d$aug_mean_flow_rear,
-  ice_days = d$ice_days
-)
+# Most parsimonious (from model comparison: model 8b ----------
 # inits 
-inits_2b= rep(
+inits_8b= rep(
   list(
-    list(lnalpha = runif(1, 0,3), # for linear
-      betaH = rnorm(1, 0.0002, 0.0001),
-      betaW = rnorm(1, 0.0002, 0.0001),
+    list(#alpha=rnorm(1, mean= 3, sd= 1), #for non-linear
+      lnalpha = runif(1, 0,3), # for linear
+      beta = rnorm(1, 0.0002, 0.0001),
       b1 = rnorm(1, mean=0, sd=0.1),
       b2 = rnorm(1, mean=0, sd=0.1),
-      b3 = rnorm(1, mean=0, sd=0.1),
       b4 = rnorm(1, mean=0, sd=0.1),
       b5 = rnorm(1, mean=0, sd=0.1),
       tau =  runif(1, 0, 2)
     )), 3
 )
 # pars to track
-pars_track_2b <- c("alpha", "betaW","betaH","b1",
-                 "b2", 
-                 "b3", 
-                 "b4", 
-                 "b5", 
-                 "tau", "pp_log_RS", "log_lik")
+pars_track_8b <- c("alpha", "beta","b1",
+                "b2", 
+                "b4", 
+                "b5", 
+                "tau", "pp_log_RS", "pp_R", "log_lik")
 
-# # Autocorrelation
+
+# # Autocorrelation -----------
 # # parameters for model 
 # pars_track <- c("alpha", "beta","b1",
 #                 "b2", 
@@ -363,79 +351,72 @@ pars_track_2b <- c("alpha", "betaW","betaH","b1",
 #                 "tau", "phi", "log_resid0", "log_resid", "tau_red", "pp_log_RS", "pp_R",
 #                 "log_lik")
 
-# # Fit stan model
+
+# # Fit stan model------------
 
 # fit model full model - no autocorrelation
 fit_ricker <- stan( file = "ricker_linear_logRS_full.stan", 
                     data=dat, chains=3, iter=10000, init=inits, 
                     #control=list(adapt_delta=0.9),
                     cores=2, pars=pars_track)
+
+# fit model 2 beta terms
+fit_ricker_8b <- stan( file = "ricker_linear_logRS_8b.stan", 
+                    data=dat, chains=3, iter=10000, init=inits_8b, 
+                    #control=list(adapt_delta=0.9),
+                    cores=2, pars=pars_track_8b)
+
 # Autocorrelation
 # fit_ricker <- stan( file = "ricker_linear_logRS.stan", 
 #                       data=dat, chains=3, iter=10000, init=inits, 
 #                       #control=list(adapt_delta=0.9),
 #                       cores=2, pars=pars_track)
 
-# fit model 2 beta terms
-fit_ricker_2b <- stan( file = "ricker_linear_logRS_full_2b.stan", 
-                    data=dat_2b, chains=3, iter=10000, init=inits_2b, 
-                    #control=list(adapt_delta=0.9),
-                    cores=2, pars=pars_track_2b)
-
 # make output into data frame
-post <- as.data.frame(fit_ricker_2b)
+post <- as.data.frame(fit_ricker_8b)
 write.csv(post, "./data/posterior_samples.csv")
 
 # parameters to graph
-pars_graph <- c("alpha", 
+pars_graph_8b <- c("alpha", 
                 "beta",
                 "b1", 
                 "b2", 
-                "b3", 
+                #"b3", 
                 "b4", 
                 "b5", 
-                "tau"
-)
-pars_graph_2b <- c("alpha",
-                "betaH",
-                "betaW",
-                "b1",
-                "b2",
-                "b3",
-                "b4",
-                "b5",
                 "tau"
 )
 
 # Plot estimates and CIs
 png(filename="./figures/fig_estimates_CI.png", width=700, height=500)
-plot(fit_ricker, pars=pars_graph)
+plot(fit_ricker_8b, pars=pars_graph_8b)
 dev.off()
 
 # Plot estimates and CIs for covariate effects only
 png(filename="./figures/fig_estimates_CI_covariates_only.png", width=300, height=500)
-plot(fit_ricker, pars=pars_graph[3:7])
+plot(fit_ricker_8b, pars=pars_graph_8b[3:6])
 dev.off()
 
 # Check wild vs. hatchery beta terms
-plot(fit_ricker, pars="beta")
-plot(fit_ricker_2b, pars=c("betaW", "betaH"))
-plot(fit_ricker_2b, pars=pars_graph_2b[4:8])
+#plot(fit_ricker, pars="beta")
+#plot(fit_ricker_2b, pars=c("betaW", "betaH"))
+#plot(fit_ricker_2b, pars=pars_graph_2b[4:8])
 
-mod_sum_2b <- round(summary(fit_ricker_2b,pars= pars_graph_2b, probs=c(0.1,0.9))$summary,6)
-mod_sum_2b
-
+# Get model summary model 8b
+mod_sum_8b <- round(summary(fit_ricker_8b,pars= pars_graph_8b, probs=c(0.1,0.9))$summary,6)
+mod_sum_8b
+write.csv(mod_sum_8b, "estimates.csv")
 
 # Get model summary
 mod_sum <- round(summary(fit_ricker,pars= pars_graph, probs=c(0.1,0.9))$summary,6)
 mod_sum 
-write.csv(mod_sum, "estimates.csv")
+
 # Correlation 
 # pairs(fit_ricker, pars=pars_graph)
 
 # Traceplots
 png(filename="./figures/fig_traceplot.png", width=700, height=700)
-traceplot(fit_ricker, pars=pars_graph)
+traceplot(fit_ricker_8b, pars=pars_graph_8b)
 dev.off()
 
 

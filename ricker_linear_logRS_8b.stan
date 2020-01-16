@@ -38,9 +38,11 @@ model {
 
 generated quantities {
   vector[N] pp_log_RS;
+  vector[N] pp_R; 
   vector[N] log_lik; 
   for (i in 1:N) {
     pp_log_RS[i] = normal_rng(pred_log_RS[i], tau); // generate predicted log(recruits/spawner)
+    pp_R[i] = exp(pp_log_RS[i]) * S[i]; // generate predicted recruits
     log_lik[i] = normal_lpdf(log_RS[i] | pred_log_RS[i], tau); // generate log likelihoods
     }
   }

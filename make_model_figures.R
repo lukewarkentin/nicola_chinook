@@ -160,10 +160,16 @@ dev.off()
 # Get mean and 90% confidence intervals for coefficient
 # Get vector of mean_aug_flow to predict for
 pred_flow <- seq(min(d$aug_mean_flow_rear), max(d$aug_mean_flow_rear), length.out = 1000)
-# write function to calculate a log(R/S) from each run of the model for a series of flows
-pred_mean_sp <- function(aug_flow) log(post$alpha) - post$betaW * mean(d$wild_spawners) - post$betaH * mean(d$hatchery_spawners) + post$b5 * aug_flow
-pred_25_sp <- function(aug_flow) log(post$alpha) - post$betaW * quantile(d$wild_spawners, 0.25) - post$betaH * quantile(d$hatchery_spawners, 0.25) + post$b5 * aug_flow
-pred_75_sp <- function(aug_flow) log(post$alpha) - post$betaW * quantile(d$wild_spawners, 0.75) - post$betaH * quantile(d$hatchery_spawners, 0.75) + post$b5 * aug_flow
+
+# write function to calculate log(R/S) from each run of the model for a series of flows (one beta)
+pred_mean_sp <- function(aug_flow) log(post$alpha) - post$beta * mean(d$total_spawners) + post$b5 * aug_flow
+pred_25_sp <- function(aug_flow) log(post$alpha) - post$beta * quantile(d$total_spawners, 0.25) + post$b5 * aug_flow
+pred_75_sp <- function(aug_flow) log(post$alpha) - post$beta * quantile(d$total_spawners, 0.75) + post$b5 * aug_flow
+
+# write function to calculate a log(R/S) from each run of the model for a series of flows (two betas) -------
+# pred_mean_sp <- function(aug_flow) log(post$alpha) - post$betaW * mean(d$wild_spawners) - post$betaH * mean(d$hatchery_spawners) + post$b5 * aug_flow
+# pred_25_sp <- function(aug_flow) log(post$alpha) - post$betaW * quantile(d$wild_spawners, 0.25) - post$betaH * quantile(d$hatchery_spawners, 0.25) + post$b5 * aug_flow
+# pred_75_sp <- function(aug_flow) log(post$alpha) - post$betaW * quantile(d$wild_spawners, 0.75) - post$betaH * quantile(d$hatchery_spawners, 0.75) + post$b5 * aug_flow
 
 # generate predictions for a series of flows
 pred_logRS_mean <- sapply(pred_flow, pred_mean_sp)
@@ -188,7 +194,6 @@ pred_flow_unscaled <- DMwR::unscale(vals=pred_flow, norm.data=scale(d_unscaled$a
 
 # get labels for second R/S y axis
 sec_yax <- c(0.5, c(1,2,4,6,8,10,12,14))
-
 
 # Get all the flow data
 fd <- hy_daily_flows(station_number= "08LG006")
