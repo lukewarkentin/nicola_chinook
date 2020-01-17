@@ -171,17 +171,25 @@ fig_hydro_circle <- fd %>% # [fd$year %in% as.numeric(names(which(table(fd$water
 fig_hydro_circle
 ggsave("./figures/fig_hydro_circle.png", fig_hydro_circle)
 
+
+
 # Two years side by side for full life cycle
 fig_hydro_2yr <- fd %>% #fd[fd$water_year %in% as.numeric(names(which(table(fd$water_year)>=365))), ] %>%
-  ggplot(aes(y=Value, x=water_yday_plus, colour=factor(decade), group=water_year)) + 
-  geom_path(size=1.2, alpha=0.5) +
+  ggplot( aes(y=Value, x=water_yday_plus, group=water_year)) +
+  #ggplot(aes(y=Value, x=water_yday_plus, colour=factor(decade), group=water_year)) +
+  geom_path( alpha=0.4) +
   #stat_summary(fun.y="mean", geom="path", size=2, alpha=0.6) +
-  scale_colour_manual(values=myPalette) +
-  geom_point(data=fd[fd$water_year %in% as.numeric(names(which(table(fd$water_year)>=365))) & fd$Symbol=="B", ], aes(y=-5, x=water_yday_plus), colour="black", size=2, alpha=0.3) +
+  #scale_colour_manual(values=myPalette) +
+  geom_point(data=fd[fd$water_year %in% as.numeric(names(which(table(fd$water_year)>=365))) & fd$Symbol=="B", ], aes(y=-5, x=water_yday_plus), shape=1, colour="blue", size=2, alpha=0.3) +
+  xlab("Month") +
+  ylab(expression("Flow in Nicola River (m"^3*"s"^-1*")")) +
+  geom_hline(aes(yintercept=0), colour="gray", linetype=2) +
   scale_x_continuous(breaks=c(month_breaks_water_yr,month_breaks_water_yr+365), labels=rep(month_labels_water_yr,2), minor_breaks=NULL) +
-  theme_bw()
+  #geom_text(data=data.frame(y=rep(-2,2), c(120, 480)), aes(x= x, y=y, label="ICE")) +
+  theme_classic()
+
 #fig_hydro_2yr 
-ggsave("./figures/fig_hydro_2yr.pdf", fig_hydro_2yr, width=14, height=8)
+ggsave("./figures/fig_hydro_2yr.pdf", fig_hydro_2yr, width=10, height=6)
 
 
 # August flows

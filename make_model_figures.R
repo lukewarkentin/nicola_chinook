@@ -216,6 +216,7 @@ table(fd$period[fd$month==8])
 str(fd)
 fd1 <- fd %>% group_by(period) %>% mutate(period_name = paste0(min(year), "-", max(year), " (", n_distinct(year), " yrs)")) %>% ungroup()
 
+# summarise for august only
 fd2 <- fd1 %>% filter(month==8) %>% group_by(year, period, month) %>% summarise(mean_aug_flow = mean(Value, na.rm=TRUE))
 table(fd2$period) # check number of years in each period bin
 # check that all augusts have full 31 days
@@ -236,7 +237,6 @@ p1 <- cdf1(x)
 p2 <- cdf2(x)
 p3 <- cdf3(x)
 p4 <- cdf4(x)
-                      
 
 
 # Plot with cumulative distribution----------
@@ -340,6 +340,61 @@ SMSY <- log(post$alpha)/post$beta * (0.5 - 0.07*log(post$alpha))
 #                                     mean(post$b2) * mean(d$max_flow_fall_c) + 
 #                                     mean(post$b3) * mean(d$mean_flow_aug_c)), col="dodger blue", lwd=3, add=TRUE)
 # dev.off()
+
+# Circle graph of change in flows --------
+# setup for circle graph of 
+table(fd$year)
+table(fd$period)
+str(fd) 
+unique(fd$Parameter)
+fd$yday <- yday(fd$Date)
+fd_avg_prd <- fd %>% group_by(period, yday) %>% summarise(avg_flow = mean(Value, na.rm=TRUE))
+ggplot(fd_avg_prd, aes(y=avg_flow, x=yday, colour=factor(period))) + 
+  geom_line(size=1.2) +
+  scale_color_manual(values = cols) +
+  theme_classic()
+# long to wide format to get percent change between periods
+fd_change <- fd_avg_prd %>% pivot_wider(names_from=period, names_prefix= "prd", values_from= avg_flow )
+fd_change$dif4_2 <- (fd_change$prd4 - fd_change$prd2) / fd_change$prd2 * 100
+fd_change$dif4_1 <- (fd_change$prd4 - fd_change$prd1) / fd_change$prd1 * 100
+fd_change$dif4_3 <- (fd_change$prd4 - fd_change$prd3) / fd_change$prd3 * 100
+# back to long format 
+fd_change_l <- fd_change[,c(1,6:8)] %>% pivot_longer(cols=c(dif4_2, dif4_1, dif4_3), names_to = "prd_change", values_to = "perc_change")
+
+# setup for labels
+days_month <- as.vector(table(fd$month, fd$year)[,"1970"])
+days_month 
+month_breaks <- cumsum(days_month)-31 + 1
+month_labels <- format(ISOdatetime(2000,1:12,1,0,0,0),"%b")
+
+# days_month_water_yr <- days_month[c(9:12, 1:8)]
+# month_breaks_water_yr <- cumsum(days_month_water_yr)-30+1
+# month_labels_water_yr <- format(ISOdatetime(2000,c(9:12,1:8),1,0,0,0),"%b")
+
+range(fd_change$dif4_2)
+# circle
+fig_hyd_change_periods <- fd_change_l[fd_change_l$prd_change %in% c("dif4_2"), ] %>% 
+  ggplot(aes(y=perc_change, x=yday,  fill=perc_change)) + 
+  geom_col() +
+  geom_path() +
+  #geom_area(aes( y=perc_change), fill="gray") +
+  #geom_point(shape=21, size=2) +
+  #geom_point(shape=16,size=1) +
+  #scale_shape_manual(values=c(17,16)) +
+  #scale_fill_gradient2(high="blue", mid="white", low="red", midpoint=0,  breaks=seq(-50,150,50), labels=as.character(seq(-50,150,50)), limits=c(-50,150), name="Percent change in\naverage daily flow,\n1957-1974 to 1992-2014") +
+  scale_fill_gradientn(colours=c("red","orange", "white", "green", "blue"), values=c(0,0.12, scales::rescale(x=0, to=c(0,1), from=range(fd_change_l$perc_change[fd_change_l$prd_change =="dif4_2"])), 0.5, 1), breaks=seq(-50,150,50), labels=as.character(seq(-50,150,50)), limits=c(-50,150), name="Percent change in\naverage daily flow,\n1957-1974 to 1992-2014") +
+  coord_polar() + 
+  scale_y_continuous(limits=c(-200,max(fd_change_l$perc_change)), expand=c(0,0), breaks=NULL) +
+  #scale_y_continuous(limits=c(-300,100), expand=c(0,0)) +
+  scale_x_continuous(breaks=month_breaks, labels=month_labels, minor_breaks=NULL) +
+  geom_hline(aes(yintercept=0)) +
+  xlab("") +
+  ylab("") +
+  theme_classic() +
+  theme(axis.line = element_blank())
+fig_hyd_change_periods 
+ggsave("./figures/fig_hyd_change_periods.png", fig_hyd_change_periods, width=10, height=6 )
+
 
 # Look at posteriors
 rethinking::dens(post$alpha)
