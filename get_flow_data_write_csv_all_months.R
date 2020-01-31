@@ -89,9 +89,13 @@ fd$year_day <- yday(fd$Date)
 fd$water_yday <- get_waterYearDay(fd$Date)
 fd$even <- fd$water_year %% 2 == 0
 fd$water_yday_plus <- ifelse(fd$even==TRUE, fd$water_yday, fd$water_yday + 365)
+fd$water_yday_aug_start <- ifelse(fd$month %in% c(8,9), fd$water_yday-365+61, fd$water_yday+61)
+fd$water_yday_plus_aug_start <- ifelse(fd$even==TRUE, fd$water_yday_aug_start, fd$water_yday_aug_start + 365)
+fd$water_year_aug_start <- ifelse(fd$month %in% c(8,9), fd$water_year +1, fd$water_year)
+fd$water_year_aug_start_plus <- ifelse(fd$even==TRUE, fd$water_year, fd$water_year -1)
 
+head(fd)
 
-  
 # get observations by month
 month_tab <- table(fd$year, fd$month)
 month_tab
@@ -148,9 +152,9 @@ days_month
 month_breaks <- cumsum(days_month)-31 + 1
 month_labels <- format(ISOdatetime(2000,1:12,1,0,0,0),"%b")
 
-days_month_water_yr <- days_month[c(9:12, 1:8)]
-month_breaks_water_yr <- cumsum(days_month_water_yr)-30+1
-month_labels_water_yr <- format(ISOdatetime(2000,c(9:12,1:8),1,0,0,0),"%b")
+days_month_water_yr <- days_month[c(8:12, 1:7)]
+month_breaks_water_yr <- cumsum(days_month_water_yr)-30
+month_labels_water_yr <- format(ISOdatetime(2000,c(8:12,1:7),1,0,0,0),"%b")
 
 
 myPalette <- colorRamps::matlab.like2(9) # get colour palette
@@ -175,21 +179,21 @@ ggsave("./figures/fig_hydro_circle.png", fig_hydro_circle)
 
 # Two years side by side for full life cycle
 fig_hydro_2yr <- fd %>% #fd[fd$water_year %in% as.numeric(names(which(table(fd$water_year)>=365))), ] %>%
-  ggplot( aes(y=Value, x=water_yday_plus, group=water_year)) +
+  ggplot( aes(y=Value, x=water_yday_plus_aug_start, group=water_year_aug_start_plus)) +
   #ggplot(aes(y=Value, x=water_yday_plus, colour=factor(decade), group=water_year)) +
-  geom_path( alpha=0.4) +
+  geom_line( alpha=0.4) +
   #stat_summary(fun.y="mean", geom="path", size=2, alpha=0.6) +
   #scale_colour_manual(values=myPalette) +
-  geom_point(data=fd[fd$water_year %in% as.numeric(names(which(table(fd$water_year)>=365))) & fd$Symbol=="B", ], aes(y=-5, x=water_yday_plus), shape=1, colour="blue", size=2, alpha=0.3) +
+  geom_point(data=fd[fd$water_year %in% as.numeric(names(which(table(fd$water_year)>=365))) & fd$Symbol=="B", ], aes(y=-5, x=water_yday_plus), shape=45,  colour="blue", size=4, alpha=0.3) +
   xlab("Month") +
   ylab(expression("Flow in Nicola River (m"^3*"s"^-1*")")) +
-  geom_hline(aes(yintercept=0), colour="gray", linetype=2) +
-  scale_x_continuous(breaks=c(month_breaks_water_yr,month_breaks_water_yr+365), labels=rep(month_labels_water_yr,2), minor_breaks=NULL) +
+  geom_hline(aes(yintercept=0), colour="gray", linetype=3) +
+  scale_x_continuous(breaks=c(month_breaks_water_yr,month_breaks_water_yr+365), labels=rep(month_labels_water_yr,2), minor_breaks=NULL, expand=c(0,0)) +
   #geom_text(data=data.frame(y=rep(-2,2), c(120, 480)), aes(x= x, y=y, label="ICE")) +
   theme_classic()
-
+fig_hydro_2yr 
 #fig_hydro_2yr 
-ggsave("./figures/fig_hydro_2yr.pdf", fig_hydro_2yr, width=10, height=6)
+ggsave("./figures/fig_hydro_2yr.pdf", fig_hydro_2yr, width=10, height=3)
 
 
 # August flows

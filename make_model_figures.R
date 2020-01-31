@@ -38,7 +38,6 @@ ci_pp_log_RS <- apply(pp_log_RS,2,rethinking::PI,prob=0.9) # get CI of predicted
 ci_pp_log_RS_50 <- apply(pp_log_RS,2,rethinking::PI,prob=0.5) # get CI of predicted
 ci_pp_log_RS_10 <- apply(pp_log_RS,2,rethinking::PI,prob=0.1) # get CI of predicted
 
-
 # Plot data with predicted intervals--------
 plot(d$wild_recruits ~ d$total_spawners , ylim=c(min(ci_ppd), max(c(ci_ppd, d$wild_recruits))))
 points(x=d$total_spawners, y=mn_ppd, add=TRUE, col="dodger blue")
@@ -245,7 +244,7 @@ p4 <- cdf4(x)
 png(filename = "./figures/fig_logRS_flow.png", width=8, height=11, units="in", res=300, pointsize=20)
 
 
-layout(matrix(c(1,2,3,3), nrow=4, ncol=1, byrow = TRUE))
+layout(matrix(c(1,1,2,3,3,3,3), nrow=7, ncol=1, byrow = TRUE))
 par(mar=c(0.1,4,0.1,4), bty="L")
 
 plot(x, p1, type="l", col=cols[1], ylab="Cumulative proportion", main="", xlim=c(0,max(d_unscaled$aug_mean_flow_rear)), lwd=2, las=1)
@@ -253,6 +252,12 @@ lines(x, p2, col=cols[2], lwd=2)
 lines(x, p3, col=cols[3], lwd=2)
 lines(x, p4, col=cols[4], lwd=2)
 
+legend("bottomright", 
+       inset=c(0, 0.05),
+       legend=unique(fd1$period_name),
+       col=cols,
+       pch="l",
+       bty="n" )
 abline(v=xint_unscaled, col="gray", lty=4, lwd=2)
 abline(h=0.5, lty=3)
 
@@ -267,12 +272,6 @@ plot(density(x=fd2$mean_aug_flow[fd2$period==1 ], na.rm=TRUE), col=cols[1], main
 for(i in 2:length(unique(fd2$period))) {
   lines(density(x=fd2$mean_aug_flow[fd2$period==i ], na.rm=TRUE), col=cols[i], lwd=2)
 }
-legend("topright", 
-       inset=c(0, 0.1),
-       legend=unique(fd1$period_name),
-       col=cols,
-       pch="l",
-       bty="n" )
 abline(v=xint_unscaled, col="gray", lty=4, lwd=2)
 
 #hist(fd2$mean_aug_flow[fd2$period==1 ], col=adjustcolor( cols[1], alpha=0.5), breaks=8,  xlim=c(0,max(fd2$mean_aug_flow)))
@@ -311,6 +310,61 @@ abline(v=xint_unscaled, col="gray", lty=4, lwd=2)
 dev.off()
 
 
+# Plot for IDEAS talk - simple ---------
+flows_periods1_4 <- c(median(fd2$mean_aug_flow[fd2$period==1]), median(fd2$mean_aug_flow[fd2$period==4]))
+flows_periods1_4_scale <- (flows_periods1_4- mean(d_unscaled$aug_mean_flow_rear)) / sd(d_unscaled$aug_mean_flow_rear)
+pred_periods1_4 <- sapply(flows_periods1_4_scale, pred_mean_sp)
+mean_pred_periods1_4 <- apply(pred_periods1_4, 2, mean)
+
+png(filename = "./figures/fig_logRS_flow_simple_IDEAS.png", width=10, height=6, units="in", res=300, pointsize=20)
+par(mar=c(4,4,0.3,0.3),  bty="L")
+plot(pred_flow_unscaled, pred_mean_mean, type="l", lwd=1.4,  ylim=c(min(pred_mean_HPDI),  max(pred_mean_HPDI)), xlim=c(min(d_unscaled$aug_mean_flow_rear),max(d_unscaled$aug_mean_flow_rear)), xlab=expression("Mean Aug flow in Nicola River (m"^3*"s"^-1*")"), ylab="Recruits/Spawner", yaxt="n", las=1)
+abline(h=0, lty=3)
+rethinking::shade(pred_mean_HPDI, pred_flow_unscaled, col=adjustcolor(col="black", alpha=0.2) )
+axis(side=2, labels=sec_yax, at=log(sec_yax), las=1)
+#abline(v=xint_unscaled, col="gray", lty=4, lwd=2)
+points(y= mean_pred_periods1_4, x= flows_periods1_4, pch= 19, cex=2, col=c("blue", "red"))
+#text(y=rep(1,2), x=flows_periods1_4, labels= list(bquote(.(round(flows_periods1_4[1],1)) ~ m^3 ~ s^-1), bquote(.(round(flows_periods1_4[2],1)) ~ m^3 ~ s^-1)), offset=1, col=c("blue", "red") )
+#arrows(x0=flows_periods1_4[1], x1= flows_periods1_4[2], y0=1, y1=1)
+dev.off()
+exp(mean_pred_periods1_4)
+xint_unscaled
+
+
+ # Plot effect sizes -------
+# get posterior predictions beta terms
+ef <- post[, grep("b[[:digit:]]", colnames(post))]
+mn_ef <- apply(ef,2,mean) # get mean of predicted
+ci95_ef <- apply(ef,2,rethinking::PI,prob=0.95) # get CI of predicted
+ci80_ef <- apply(ef,2,rethinking::PI,prob=0.8) # get CI of predicted
+mn_ef
+
+# Plot effect size for paper-------
+library(bayesplot)
+fig_effect_sizes <- mcmc_areas(post, pars=c("b5", "b4","b2", "b1"), prob=0.8) + 
+  xlab(expression("Effect on log"[e]*"(Recruits/Spawner)")) +
+  ylab("Parameter") +
+  geom_vline(aes(xintercept=0)) +
+  scale_y_discrete(labels=c("b5 (Aug. flow rearing)", "b4 (ice days)", "b2 (Aug. flow spawning)", "b1 (smolt to age 3 surv.)")) +
+  theme_classic()
+fig_effect_sizes
+ggsave("./figures/fig_effect_sizes.png", fig_effect_sizes, width=6, height=6 )
+
+# For IDEAS
+png(filename = "./figures/fig_effect_sizes_IDEAS.png", width=12, height=5, units="in", res=300, pointsize=25)
+layout(matrix(c(1), nrow=1, ncol=1, byrow = TRUE))
+par(mar=c(0.3,4,0.3,0.3)+0.2,  bty="L")
+plot(x=1:4, ylim=c(min(ci95_ef), max(ci95_ef)), xlim=c(1,4), ylab=expression("Effect on log"[e]*"(Recruits/Spawner)"), xlab="", xaxt="n")
+abline(h=0)
+segments(y0=ci95_ef[1,][c(2:4,1)], y1=ci95_ef[2,][c(2:4,1)], x0=1:4, x1=1:4)
+segments(y0=ci80_ef[1,][c(2:4,1)], y1=ci80_ef[2,][c(2:4,1)], x0=1:4, x1=1:4, lwd=10, col=c("green", "red", "green","gray"))
+points(x=as.factor(names(mn_ef)), y=mn_ef[c(2:4,1)], type="p", cex=3, pch=19, ylim=c(min(ci95_ef), max(ci95_ef)))
+dev.off()
+
+
+rsquarelm2 <- 0.855463
+plot(1:10, 1:10, type = "n")
+text(5, 5, bquote(m^2 == .(round(rsquarelm2, 2))))
 # Changes in carrying capacity, etc. over hydrometric flow periods------
 # See Hilborn and Walters 2013 , Table 7.2 for equations 
 # calculate productivity using flow from different periods - note that other environmental parameters can be dropped since mean values are 0 since they are scaled. 
@@ -464,6 +518,8 @@ abline(v=0)
 rethinking::dens(post$b5)
 abline(v=0)
 rethinking::dens(post$tau)
+
+
 
 # # Plot triptych plot, min flood, mean flood, max flood
 # png(filename="./figures/fig_flood_triptych_lognormal.png", width=1200, height=800, pointsize = 25)

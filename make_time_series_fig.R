@@ -32,6 +32,22 @@ ccs <- cc %>% group_by(HARVEST_YE) %>% summarise(area_ha=sum(AREA_HA))
 names(ccs)[1] <- "harvest_year"
 
 # Water licensing 
+wl <- read.delim("./data/water-licenses.txt", sep="\t", stringsAsFactors = FALSE) # read in water license data downloaded from http://a100.gov.bc.ca/pub/wtrwhse/water_licences.input, stream name = NICOLA
+str(wl)
+# Note on units: 
+# Unit - The units of measurement for the quantity of water authorized in the licence.
+# MD (meters cubic / per day)
+# MS (meters cubic / per second)
+# MY (meters cubic / per year)
+# TF (total flow) - a unit shown against non-consumptive purposes (e.g. land improvement, conservation) for which the total flow of the stream is authorized to pass through the licensed works. No water is diverted from the stream. 
+# New column- make all quantities into cubic metres per year
+wl$volume_cmy <- ifelse(wl$Unit=="MY", wl$Quantity, 
+                        ifelse(wl$Unit=="MD", wl$Quantity* 365, 
+                               ifelse(wl$Unit=="MS", wl$Quantity * 60 * 60 * 24 * 365, NA)))
+wl$Priority.Date <- ymd(wl$Priority.Date)
+wl1 <- wl[-grep("Conservation|Storage", wl$Purpose), ] # remove conservation and dam storages
+# get cumulative sum by date
+wl2 <- wl1[!is.na(wl1$volume_cmy), ] %>% arrange(Priority.Date) %>%  mutate(cumvolume_cmy = cumsum(volume_cmy))
 
 # Aug mean flow
 fdm <- hy_monthly_flows(station_number = "08LG006")
@@ -50,39 +66,55 @@ fdyt <- fdy %>% group_by(year) %>% summarise(total_yield = sum(Value))
 # read in full time series of spawning data
 sp <- read.csv("./data/full_spawner_time_series.csv")
 
-xlims <- c(1900, 2020)
+#xlims <- c(1900, 2020)
+xlims <- c(min(year(wl2$Priority.Date)), 2020)
 xlims2 <- c(1955, 2020)
 
-# Plot it all!
-png("./figures/fig_time_series_context.png", width=8, height=8, units="in", res=300, pointsize=10)
+# Figure 1 : Air temp, precip, water licenses, clearcuts-------
+png("./figures/fig_1_change_climate_land_water_use.png", width=4, height=8, units="in", res=300, pointsize=10)
 # Layout and formatting
-layout(matrix(c(1:8), nrow=4, ncol=2, byrow = FALSE))
-par(mar=c(0,4,0,0)+0.1, 
-  bty="L")
+options(scipen=999) # turn off sci. notation
+layout(matrix(c(1:5), nrow=5, ncol=1, byrow = FALSE))
+par(mar=c(0,6,0.3,0)+0.3, bty="n", las=1, xaxt="n", cex=0.9)
 # weather
 
 # Aug temps
-plot(x=aug_temp$year, y=aug_temp$mean, type="b", xlim=xlims, ylab="Mean Aug. air temperature, Merritt BC") #ylim=c(min(aug_temp$mean, na.rm=TRUE), max(aug_temp$max)))
+plot(x=aug_temp$year, y=aug_temp$mean, type="b", xlim=xlims, ylab="Mean Aug. air\ntemperature") #ylim=c(min(aug_temp$mean, na.rm=TRUE), max(aug_temp$max)))
 #lines(x=aug_temp$year, y=aug_temp$min, col="gray")
 #lines(x=aug_temp$year, y=aug_temp$max, col="gray")
+lines(loess(mean~year, data=aug_temp)$fitted ~ loess(mean~year, data=aug_temp)$x, col="red")
 
 # Jan temps
-plot(x=jan_temp$year, y=jan_temp$mean, type="b",  xlim=xlims,ylab="Mean Jan. air temperature, Merritt BC") #ylim=c(min(jan_temp$mean, na.rm=TRUE), max(jan_temp$max)))
+plot(x=jan_temp$year, y=jan_temp$mean, type="b",  xlim=xlims,ylab="Mean Jan. air\ntemperature") #ylim=c(min(jan_temp$mean, na.rm=TRUE), max(jan_temp$max)))
 abline(h=0, lty=2, col="gray")
 #lines(x=jan_temp$year, y=jan_temp$min, col="gray")
 #lines(x=jan_temp$year, y=jan_temp$max, col="gray")
+lines(loess(mean~year, data=jan_temp)$fitted ~ loess(mean~year, data=jan_temp)$x, col="blue")
 
 # precip
-plot(x=rain$year, y=rain$rain, type="l", col="dodgerblue", xlim=xlims, ylab="Precipitation (mm)")
-lines(x=snow$year, y=snow$snow, type="l")
+plot(x=rain$year, y=rain$rain, type="b", col="dodgerblue", xlim=xlims, ylab="Precipitation (mm)", ylim=c(min(snow$snow)-10,max(rain$rain) +10 ))
+lines(x=snow$year, y=snow$snow, type="b")
+lines(loess(rain~year, data=rain)$fitted ~ loess(rain~year, data=rain)$x, col="dodgerblue")
+lines(loess(snow~year, data=snow)$fitted ~ loess(snow~year, data=snow)$x, col="black")
+
 legend("topleft", 
        inset=c(0, 0.1),
        legend=c("Rain", "Snow"),
        col=c("dodgerblue", "black"),
-       pch="l",
+       pch=1,
        bty="n" )
 
-par(mar=c(4,4,0,0)+0.1)
+
+# water linences
+plot(wl2$cumvolume_cmy/1000000 ~ year(wl2$Priority.Date), type="b", xlim=xlims, ylab="Water allocations\n(millions cubic\nmetres per year)")
+
+# cutblock area
+par(mar=c(4,6,0.3,0)+0.3, bty="n", las=1, xaxt="s", xaxs="i")
+plot(x=ccs$harvest_year, y=ccs$area_ha, ylab="Clearcut area (ha)", type="b", xlim=xlims, xlab="Year")
+
+dev.off()
+
+# Fig 2: changes in hydrology-------
 
 # Mean august flow
 plot(x=fdma_mean$Year, fdma_mean$Value, type="b" ,  xlim=xlims, ylim=c(0, max(fdma_mean$Value, na.rm=TRUE)), ylab=expression("Mean Aug flow (m"^3*"s"^-1*")"))
@@ -92,13 +124,6 @@ par(mar=c(0,4,0,0)+0.1)
 # total annual flow
 plot(x=fdyt$year, y=fdyt$total_yield, type="b", xlab="Year",  xlim=xlims2, ylab=expression("Total annual yield (m"^3*")"))
 
-# water linences
-plot(1,1,  xlim=xlims)
-
-# cutblock area
-plot(x=ccs$harvest_year, y=ccs$area_ha, ylab="Clearcut area (ha)", type="l", xlim=xlims2)
-
-par(mar=c(4,4,0,0)+0.1)
 # spawners
 plot( sp$brood_year,sp$total_spawners ,  type="l", xlab="Year", ylab="Chinook spawners",  xlim=xlims2)
 lines(sp$brood_year, sp$wild_spawners, col = "blue", type = "l", add=TRUE)
@@ -109,4 +134,3 @@ legend("topleft",
        col=c("black", "blue", "orange"),
        pch="l",
        bty="n" )
-dev.off()

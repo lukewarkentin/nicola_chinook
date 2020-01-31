@@ -601,6 +601,16 @@ axis(2, at=seq_len(length(rsqs)), labels = names(rsqs), las=2)
 text(x=rsqs, y= 1:length(rsqs)+0.4, label=round(rsqs,2), cex=0.7)
 dev.off()
 
+# Get coefficient estimates for different models
+mod_sum_8 <- round(summary(fit_ricker_8, probs=c(0.1,0.9))$summary,6)
+mod_sum_8
+write.csv(mod_sum_8, "estimates_model8.csv")
+# Get carring capacity for hatchery vs. wild fish
+cc_w <- log(mod_sum_8[1,1])/mod_sum_8[2,1]
+cc_h <- log(mod_sum_8[1,1])/mod_sum_8[3,1]
+cc_h / cc_w
+cc_w * 0.542
+
 #plot(x=1:18, y=1:18, pch=1:18)
 
 # result is that 
