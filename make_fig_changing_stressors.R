@@ -66,7 +66,7 @@ fdyt <- fdy %>% group_by(year) %>% summarise(total_yield = sum(Value))
 # read in full time series of spawning data
 sp <- read.csv("./data/full_spawner_time_series.csv")
 
-#xlims <- c(1900, 2020)
+#xlims <- c(1910, 2020)
 xlims <- c(min(year(wl2$Priority.Date)), 2020)
 xlims2 <- c(1955, 2020)
 
@@ -75,7 +75,7 @@ png("./figures/fig_1_change_climate_land_water_use.png", width=4, height=8, unit
 # Layout and formatting
 options(scipen=999) # turn off sci. notation
 layout(matrix(c(1:5), nrow=5, ncol=1, byrow = FALSE))
-par(mar=c(0,6,0.3,0)+0.3, bty="n", las=1, xaxt="n", cex=0.9)
+par(mar=c(0,6,1,0)+0.3, bty="n", las=1, xaxt="n", cex=0.9)
 # weather
 
 # Aug temps
@@ -109,8 +109,9 @@ legend("topleft",
 plot(wl2$cumvolume_cmy/1000000 ~ year(wl2$Priority.Date), type="b", xlim=xlims, ylab="Water allocations\n(millions cubic\nmetres per year)")
 
 # cutblock area
-par(mar=c(4,6,0.3,0)+0.3, bty="n", las=1, xaxt="s", xaxs="i")
-plot(x=ccs$harvest_year, y=ccs$area_ha, ylab="Clearcut area (ha)", type="b", xlim=xlims, xlab="Year")
+par(mar=c(4,6,1,0)+0.3, bty="n", las=1, xaxt="s")
+plot(x=ccs$harvest_year, y=cumsum(ccs$area_ha)/7289, ylab="Percent of\nwatershed clearcut", type="b", xlim=xlims, xlab="Year", xaxt="n", col=ifelse(ccs$harvest_year<2003, "black", "orange"), pch=ifelse(ccs$harvest_year<2003, 1 ,16))
+axis(side=1, at=seq(1870, 2020, 10), labels=seq(1870, 2020, 10))
 
 dev.off()
 

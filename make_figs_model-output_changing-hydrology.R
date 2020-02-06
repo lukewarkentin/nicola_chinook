@@ -225,7 +225,9 @@ table(fd2$period) # check number of years in each period bin
 str(fd)
 dens <- density(x=fd1$Value[fd1$month==8 ], na.rm=TRUE)
 #cols <- c("darkblue", "dodgerblue", "green4", "darkgoldenrod1", "chocolate2", "firebrick")
-cols <- c("darkblue", "green4", "darkgoldenrod1", "firebrick")
+#cols <- c("darkblue", "green4", "darkgoldenrod1", "firebrick")
+cbbPalette <- c("#000000", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7") # colour blind palette with black
+cols <- cbbPalette[c(1,3,2,7)]
 
 # Set up for cumulative proportion flows
 cdf1 <- ecdf(fd2$mean_aug_flow[fd2$period==1 ])
@@ -362,9 +364,7 @@ points(x=as.factor(names(mn_ef)), y=mn_ef[c(2:4,1)], type="p", cex=3, pch=19, yl
 dev.off()
 
 
-rsquarelm2 <- 0.855463
-plot(1:10, 1:10, type = "n")
-text(5, 5, bquote(m^2 == .(round(rsquarelm2, 2))))
+
 # Changes in carrying capacity, etc. over hydrometric flow periods------
 # See Hilborn and Walters 2013 , Table 7.2 for equations 
 # calculate productivity using flow from different periods - note that other environmental parameters can be dropped since mean values are 0 since they are scaled. 
@@ -397,7 +397,7 @@ SMSY <- log(post$alpha)/post$beta * (0.5 - 0.07*log(post$alpha))
 #                                     mean(post$b3) * mean(d$mean_flow_aug_c)), col="dodger blue", lwd=3, add=TRUE)
 # dev.off()
 
-# Circle graph of change in flows --------
+# Figure for changing hydrology --------
 # setup for circle graph of
 unique(fd$Parameter)
 fd$yday <- yday(fd$Date)
@@ -410,6 +410,9 @@ periods_sum <- fd1 %>% group_by(period, period_name) %>% summarise()
 periods_sum$num_years <- as.numeric(substr(periods_sum$period_name, 12,13 ))
 fd_dif <- merge(fd_dif, periods_sum, by="period", all.x=TRUE)
 fd_dif$perc_yrs_data <- fd_dif$count_years / fd_dif$num_years * 100
+
+# join period name to flow data 
+fd <- merge(fd, periods_sum, by="period", all.x=TRUE)
   
 ggplot(fd_avg_prd, aes(y=avg_flow, x=yday, colour=factor(period))) + 
   geom_line(size=1.2) +
@@ -433,17 +436,59 @@ month_labels <- format(ISOdatetime(2000,1:12,1,0,0,0),"%b")
 # month_labels_water_yr <- format(ISOdatetime(2000,c(9:12,1:8),1,0,0,0),"%b")
 unique(fd_dif$perc_yrs_data)
 range(fd_dif$perc_change, na.rm=TRUE)
-# Figure with deviations from historic average flows by period
-fig_hyd_change_hist <-ggplot(data=fd_dif, aes(y=perc_change, x=yday, group=period)) +
+
+# Hydrographs by period
+fig_hyd_period <- ggplot(data=fd_dif[fd_dif$count_years>5, ], aes(y=avg_flow, x=yday, group=period, colour=factor(period_name))) +
+  geom_line( lineend="round") +
+  geom_line(data=fd, aes(y=Value, x=yday, group=interaction(period_name, year)), alpha=0.1) +
+  scale_colour_manual(values=cols,  name="Period") + 
+  #scale_size_continuous(range=c(0.1,2), name="Percent of years in\nperiod with data on day") +
+  #scale_y_continuous(limits=c(-200,max(fd_change_l$perc_change)), expand=c(0,0), breaks=NULL) +
+  #scale_y_continuous(limits=c(-300,100), expand=c(0,0)) +
+  scale_x_continuous(breaks=month_breaks, labels=month_labels, minor_breaks=NULL, expand=c(0,0)) +
+  #scale_y_continuous(breaks=seq(-100,300,50)) +
+  scale_y_continuous(expand=c(0,0)) +
+  xlab("") +
+  ylab("Flow") +
+  theme_classic() +
+  theme(panel.grid.major.x = element_line(colour="gray", linetype=3),
+        legend.position = c(0.2, 0.8),
+        legend.background = element_blank(),
+        legend.box = "horizontal")
+fig_hyd_period
+ggsave("./figures/fig_hyd_period.png", fig_hyd_period, width=10, height=5 )
+
+# zoom in on August and September
+fig_hyd_aug <- ggplot(data=fd_dif[fd_dif$count_years>5, ], aes(y=avg_flow, x=yday, group=period_name)) +
+  geom_line(aes(colour=factor(period_name)), lineend="round") +
+  scale_colour_manual(values=rep(cols,2), guide=FALSE) + 
+  #scale_size_continuous(range=c(0.1,2), name="Percent of years in\nperiod with data on day") +
+  #scale_y_continuous(limits=c(-200,max(fd_change_l$perc_change)), expand=c(0,0), breaks=NULL) +
+  #scale_y_continuous(limits=c(-300,100), expand=c(0,0)) +
+  scale_x_continuous(breaks=month_breaks, labels=month_labels, minor_breaks=NULL, expand=c(0,0), limits=c(yday("2000-07-31"), yday("2000-12-31"))) +
+  scale_y_continuous(limits=c(0,30), expand=c(0,0)) +
+  xlab("") +
+  ylab("") +
+  theme_classic() +
+  theme(panel.grid.major.x = element_line(colour="gray", linetype=3),
+        legend.position = c(0.2, 0.8),
+        legend.background = element_blank(),
+        rect = element_rect(fill = "transparent", colour=NA),
+        legend.box = "horizontal")
+fig_hyd_aug
+ggsave("./figures/fig_hyd_aug.png", fig_hyd_aug, width=4, height=2)
+
+# Figure with deviations from historic average flows by period. Remove days where there is less than 5 years of data
+fig_hyd_change_hist <-ggplot(data=fd_dif[fd_dif$count_years>5, ], aes(y=perc_change, x=yday, group=period)) +
   #geom_col(aes(fill=perc_change, group=period), colour="white"width=2) +
   geom_ribbon(aes(ymin=0, ymax=perc_change, fill=factor(period_name)), alpha=0.3)+
-  geom_line(aes(colour=factor(period_name), size=perc_yrs_data), lineend="round") +
+  geom_line(aes(colour=factor(period_name)), lineend="round") +
   #scale_fill_gradientn(colours=c("black","red", "white", "green", "blue"), values=c(0,0.12, scales::rescale(x=0, to=c(0,1), from=range(fd_change_l$perc_change[fd_change_l$prd_change =="dif4_1"], na.rm=TRUE)), 0.5, 1), breaks=seq(-100,250,50), labels=as.character(seq(-100,250,50)), limits=c(-100,250), name="Percent difference\n from historic\naverage daily flow") +
   #scale_fill_gradient2(high="white", mid="gray", low="black", midpoint=0,  breaks=seq(-50,150,50), labels=as.character(seq(-50,150,50)), limits=c(-50,150), name="Percent difference\n from historic\naverage daily flow") +
   #coord_polar() + 
-  scale_fill_manual(values=cols, name="Period") + 
+  scale_fill_manual(values=cols, guide=FALSE) + 
   scale_colour_manual(values=cols, guide=FALSE) + 
-  scale_size_continuous(range=c(0.1,2), name="Percent of years in\nperiod with data on day") +
+  #scale_size_continuous(range=c(0.1,2), name="Percent of years in\nperiod with data on day") +
   #scale_y_continuous(limits=c(-200,max(fd_change_l$perc_change)), expand=c(0,0), breaks=NULL) +
   #scale_y_continuous(limits=c(-300,100), expand=c(0,0)) +
   scale_x_continuous(breaks=month_breaks, labels=month_labels, minor_breaks=NULL, expand=c(0,0)) +
@@ -453,11 +498,11 @@ fig_hyd_change_hist <-ggplot(data=fd_dif, aes(y=perc_change, x=yday, group=perio
   ylab("Percent difference from historic average daily flow") +
   theme_classic() +
   theme(panel.grid.major.x = element_line(colour="gray", linetype=3),
-        legend.position = c(0.8, 0.8),
+        legend.position = c(0.2, 0.8),
         legend.background = element_blank(),
         legend.box = "horizontal")
 fig_hyd_change_hist
-ggsave("./figures/fig_hyd_change_hist.png", fig_hyd_change_hist, width=10, height=6 )
+ggsave("./figures/fig_hyd_change_hist.png", fig_hyd_change_hist, width=10, height=5 )
 
 # check min, max
 range(fd_change$dif4_2)
