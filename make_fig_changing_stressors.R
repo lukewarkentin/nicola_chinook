@@ -67,53 +67,66 @@ fdyt <- fdy %>% group_by(year) %>% summarise(total_yield = sum(Value))
 sp <- read.csv("./data/full_spawner_time_series.csv")
 
 #xlims <- c(1910, 2020)
-xlims <- c(min(year(wl2$Priority.Date)), 2020)
+xlims <- c(min(year(wl2$Priority.Date))-2, 2020+2)
 xlims2 <- c(1955, 2020)
 
 # Figure 1 : Air temp, precip, water licenses, clearcuts-------
 png("./figures/fig_1_change_climate_land_water_use.png", width=4, height=8, units="in", res=300, pointsize=10)
 # Layout and formatting
 options(scipen=999) # turn off sci. notation
-layout(matrix(c(1:5), nrow=5, ncol=1, byrow = FALSE))
-par(mar=c(0,6,1,0)+0.3, bty="n", las=1, xaxt="n", cex=0.9)
+layout(matrix(c(1:5,5), nrow=6, ncol=1, byrow = FALSE))
+par(mar=c(0,6,0,0)+0.3, bty="n", xaxs="i", yaxs="r", xaxt="s", las=1, cex=0.9, ann=TRUE)
 # weather
 
 # Aug temps
-plot(x=aug_temp$year, y=aug_temp$mean, type="b", xlim=xlims, ylab="Mean Aug. air\ntemperature") #ylim=c(min(aug_temp$mean, na.rm=TRUE), max(aug_temp$max)))
+plot(x=aug_temp$year, y=aug_temp$mean, type="b", xlim=xlims, ylab=expression(atop("Mean Aug. air" , paste( "temperature (",degree*C,")"))), col=adjustcolor("black", alpha=0.5), xaxt="n")
+axis(side=1, labels=NA, at=seq(1870, 2020, 10))
+#ylim=c(min(aug_temp$mean, na.rm=TRUE), max(aug_temp$max)))
 #lines(x=aug_temp$year, y=aug_temp$min, col="gray")
 #lines(x=aug_temp$year, y=aug_temp$max, col="gray")
-lines(loess(mean~year, data=aug_temp)$fitted ~ loess(mean~year, data=aug_temp)$x, col="red")
+lines(loess(mean~year, data=aug_temp)$fitted ~ loess(mean~year, data=aug_temp)$x)
+text(x=1880, y=20, label="a")
 
 # Jan temps
-plot(x=jan_temp$year, y=jan_temp$mean, type="b",  xlim=xlims,ylab="Mean Jan. air\ntemperature") #ylim=c(min(jan_temp$mean, na.rm=TRUE), max(jan_temp$max)))
+plot(x=jan_temp$year, y=jan_temp$mean, type="b",  xlim=xlims, ylab=expression(atop("Mean Jan. air" , paste( "temperature (",degree*C,")"))), col=adjustcolor("black", alpha=0.5), xaxt="n") #ylim=c(min(jan_temp$mean, na.rm=TRUE), max(jan_temp$max)))
+axis(side=1, labels=NA, at=seq(1870, 2020, 10))
 abline(h=0, lty=2, col="gray")
 #lines(x=jan_temp$year, y=jan_temp$min, col="gray")
 #lines(x=jan_temp$year, y=jan_temp$max, col="gray")
-lines(loess(mean~year, data=jan_temp)$fitted ~ loess(mean~year, data=jan_temp)$x, col="blue")
+lines(loess(mean~year, data=jan_temp)$fitted ~ loess(mean~year, data=jan_temp)$x)
+text(x=1880, y=-5, label="b")
 
 # precip
-plot(x=rain$year, y=rain$rain, type="b", col="dodgerblue", xlim=xlims, ylab="Precipitation (mm)", ylim=c(min(snow$snow)-10,max(rain$rain) +10 ))
-lines(x=snow$year, y=snow$snow, type="b")
-lines(loess(rain~year, data=rain)$fitted ~ loess(rain~year, data=rain)$x, col="dodgerblue")
-lines(loess(snow~year, data=snow)$fitted ~ loess(snow~year, data=snow)$x, col="black")
+plot(x=rain$year, y=rain$rain, type="b", pch=1, col=adjustcolor("black", alpha=0.5), xlim=xlims, ylab="Rain (mm)\nand snow (cm)", ylim=c(min(snow$snow)-10,max(rain$rain) +10 ), xaxt="n")
+axis(side=1, labels=NA, at=seq(1870, 2020, 10))
+points(x=snow$year, y=snow$snow, type="b", pch= 19, lty=1, adjustcolor("black", alpha=0.5))
+lines(loess(rain~year, data=rain)$fitted ~ loess(rain~year, data=rain)$x)
+lines(loess(snow~year, data=snow)$fitted ~ loess(snow~year, data=snow)$x)
+text(x=c(2000, 2000), y=c(340,10), labels=c("rain", "snow"))
+text(x=1880, y=250, label="c")
 
-legend("topleft", 
-       inset=c(0, 0.1),
-       legend=c("Rain", "Snow"),
-       col=c("dodgerblue", "black"),
-       pch=1,
-       bty="n" )
-
+# legend("topleft", 
+#        inset=c(0, 0.1),
+#        legend=c("Rain", "Snow"),
+#        col=adjustcolor("black", alpha=0.5),
+#        pch=c(1,19),
+#        bty="n" )
 
 # water linences
-plot(wl2$cumvolume_cmy/1000000 ~ year(wl2$Priority.Date), type="b", xlim=xlims, ylab="Water allocations\n(millions cubic\nmetres per year)")
+plot(wl2$cumvolume_cmy/1000000 ~ year(wl2$Priority.Date), type="b", xlim=xlims, ylab=expression(atop("Water allocations" , (m^3%.%10^6%.%"year"^-1))), xaxt="n")
+axis(side=1, labels=NA,at=seq(1870, 2020, 10) )
+text(x=1880, y=35, label="d")
 
 # cutblock area
-par(mar=c(4,6,1,0)+0.3, bty="n", las=1, xaxt="s")
-plot(x=ccs$harvest_year, y=cumsum(ccs$area_ha)/7289, ylab="Percent of\nwatershed clearcut", type="b", xlim=xlims, xlab="Year", xaxt="n", col=ifelse(ccs$harvest_year<2003, "black", "orange"), pch=ifelse(ccs$harvest_year<2003, 1 ,16))
-axis(side=1, at=seq(1870, 2020, 10), labels=seq(1870, 2020, 10))
+par(mar=c(9,6,0,0)+0.3, bty="n", las=1, xaxt="s", ann=TRUE)
+plot(x=ccs$harvest_year, y=cumsum(ccs$area_ha)/7289, ylab="Cumulative percent\nof watershed clearcut", type="b", xlim=xlims, xlab="Year", xaxt="n")
+#plot(x=ccs$harvest_year, y=cumsum(ccs$area_ha)/7289, ylab="Cumulative percent\nof watershed clearcut", type="b", xlim=xlims, xlab="Year", xaxt="n", col=ifelse(ccs$harvest_year<2003, "black", "orange"), pch=ifelse(ccs$harvest_year<2003, 1 ,19), cex=0.9)
+axis(side=1, at=seq(1870, 2020, 10), labels=seq(1870, 2020, 10), las=2)
+text(x=1880, y=20, label="e")
 
 dev.off()
+
+
 
 # Fig 2: changes in hydrology-------
 

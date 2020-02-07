@@ -55,6 +55,8 @@ polygon(x=c(d$brood_year, rev(d$brood_year)), y=c(ci_ppd50[1,], rev(ci_ppd50[2,]
 polygon(x=c(d$brood_year, rev(d$brood_year)), y=c(ci_ppd10[1,], rev(ci_ppd10[2,])), col = adjustcolor('grey', alpha=0.5), border = NA)
 dev.off()
 
+
+# Model fit --------
 # Check distribution of posterior 
 rethinking::dens(ppd[1], xlim=c(0,50000))
 abline(v=mn_ppd[1], col="dodgerblue")
@@ -242,11 +244,10 @@ p3 <- cdf3(x)
 p4 <- cdf4(x)
 
 
-# Plot with cumulative distribution----------
+# Plot with cumulative----------
 png(filename = "./figures/fig_logRS_flow.png", width=8, height=11, units="in", res=300, pointsize=20)
 
-
-layout(matrix(c(1,1,2,3,3,3,3), nrow=7, ncol=1, byrow = TRUE))
+layout(matrix(c(1,2,3,3,3), nrow=5, ncol=1, byrow = TRUE))
 par(mar=c(0.1,4,0.1,4), bty="L")
 
 plot(x, p1, type="l", col=cols[1], ylab="Cumulative proportion", main="", xlim=c(0,max(d_unscaled$aug_mean_flow_rear)), lwd=2, las=1)
@@ -449,7 +450,7 @@ fig_hyd_period <- ggplot(data=fd_dif[fd_dif$count_years>5, ], aes(y=avg_flow, x=
   #scale_y_continuous(breaks=seq(-100,300,50)) +
   scale_y_continuous(expand=c(0,0)) +
   xlab("") +
-  ylab("Flow") +
+  ylab(expression("\nFlow in Nicola River (m"^3*"s"^-1*")")) +
   theme_classic() +
   theme(panel.grid.major.x = element_line(colour="gray", linetype=3),
         legend.position = c(0.2, 0.8),
@@ -458,7 +459,7 @@ fig_hyd_period <- ggplot(data=fd_dif[fd_dif$count_years>5, ], aes(y=avg_flow, x=
 fig_hyd_period
 ggsave("./figures/fig_hyd_period.png", fig_hyd_period, width=10, height=5 )
 
-# zoom in on August and September
+# zoom in on August to December
 fig_hyd_aug <- ggplot(data=fd_dif[fd_dif$count_years>5, ], aes(y=avg_flow, x=yday, group=period_name)) +
   geom_line(aes(colour=factor(period_name)), lineend="round") +
   scale_colour_manual(values=rep(cols,2), guide=FALSE) + 
@@ -495,7 +496,7 @@ fig_hyd_change_hist <-ggplot(data=fd_dif[fd_dif$count_years>5, ], aes(y=perc_cha
   scale_y_continuous(breaks=seq(-100,300,50)) +
   geom_hline(aes(yintercept=0)) +
   xlab("Day of year") +
-  ylab("Percent difference from historic average daily flow") +
+  ylab("Percent difference of daily average flow for\nperiod and daily average from 1911-2014") +
   theme_classic() +
   theme(panel.grid.major.x = element_line(colour="gray", linetype=3),
         legend.position = c(0.2, 0.8),
