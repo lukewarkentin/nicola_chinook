@@ -27,6 +27,8 @@ recruits <- brood %>% group_by(brood_year) %>% summarise(wild_recruits=sum(recru
 spawners <- read.csv("./data/spawners_1995-2018.csv")
 
 sd <- merge(recruits, spawners, by.x="brood_year", by.y="run_year", all=TRUE)
+# write csv to send to Chuck Parken
+write.csv(sd, "./data/spawners_recruits_unclipped_hatchery_adjusted_LukeWarkentin.csv", row.names=FALSE)
 
 # Read in calibrated peak count estimates (aerial counts? Check with Chuck Parken) from 1992 to 1994 with CV, and variance and CV for mark-recapture estimates from 1995-2018
 spawn_sup <- read_excel("./data/Nicola Calibrated Esc with Revised AFC and unclipped (1975-1994) for Luke.xlsx", trim_ws = TRUE, skip=1)
@@ -283,98 +285,74 @@ ggplot(d_unscaled, aes(y=smolt_age3_survival, x=brood_year)) +
 # }
 
 # Declare data, use centered covariates ----------
-# dat 
+#data 
 dat <- list(
   N = nrow(d),
-  #log_R = log(d$wild_recruits),
   log_RS = log(d$wild_recruits/d$total_spawners),
-  S = d$total_spawners, 
+  Sw = d$wild_spawners, 
+  Sh = d$hatchery_spawners,
+  S = d$total_spawners,
   ocean_surv = d$smolt_age3_survival,
   aug_mean_flow = d$aug_mean_flow,
   sep_dec_max_flow = d$sep_dec_max_flow,
   aug_mean_flow_rear = d$aug_mean_flow_rear,
   ice_days = d$ice_days
 )
-
-# Full model 11, no autocorrelation ---------
-# inits 
-inits= rep(
-  list(
-    list(#alpha=rnorm(1, mean= 3, sd= 1), #for non-linear
-      lnalpha = runif(1, 0,3), # for linear
-      beta = rnorm(1, 0.0002, 0.0001),
-      b1 = rnorm(1, mean=0, sd=0.1),
-      b2 = rnorm(1, mean=0, sd=0.1),
-      b3 = rnorm(1, mean=0, sd=0.1),
-      b4 = rnorm(1, mean=0, sd=0.1),
-      b5 = rnorm(1, mean=0, sd=0.1),
-      tau =  runif(1, 0, 2)
-    )), 3
-)
-# pars to track
-pars_track <- c("alpha", "beta","b1",
-                 "b2", 
-                 "b3", 
-                 "b4", 
-                 "b5", 
-                 "tau", "pp_log_RS", "pp_R", "log_lik")
-
-# Most parsimonious (from model comparison: model 8b ----------
-# inits 
+# Model 8b---------
+# Most parsimonious (from model comparison)
 inits_8b= rep(
   list(
-    list(#alpha=rnorm(1, mean= 3, sd= 1), #for non-linear
-      lnalpha = runif(1, 0,3), # for linear
-      beta = rnorm(1, 0.0002, 0.0001),
-      b1 = rnorm(1, mean=0, sd=0.1),
-      b2 = rnorm(1, mean=0, sd=0.1),
-      b4 = rnorm(1, mean=0, sd=0.1),
-      b5 = rnorm(1, mean=0, sd=0.1),
-      tau =  runif(1, 0, 2)
+    list(lnalpha = runif(1, 0,3), 
+         beta = rnorm(1, 0.0002, 0.0001),
+         b1 = rnorm(1, mean=0, sd=0.1),
+         b2 = rnorm(1, mean=0, sd=0.1),
+         b4 = rnorm(1, mean=0, sd=0.1),
+         b5 = rnorm(1, mean=0, sd=0.1),
+         tau =  runif(1, 0, 2)
     )), 3
 )
-# pars to track
-pars_track_8b <- c("alpha", "beta","b1",
-                "b2", 
-                "b4", 
-                "b5", 
-                "tau", "pp_log_RS", "pp_R", "log_lik")
+pars_track_8b <- c("alpha","beta","b1",
+                   "b2", 
+                   "b4", 
+                   "b5",
+                   "tau", "pp_log_RS",  "log_lik")
 
+# Model 8---------
+# Two beta model that was most parsimonious = model 8 
 
-# # Autocorrelation -----------
-# # parameters for model 
-# pars_track <- c("alpha", "beta","b1",
-#                 "b2", 
-#                 "b3", 
-#                 "b4", 
-#                 "b5", 
-#                 "tau", "phi", "log_resid0", "log_resid", "tau_red", "pp_log_RS", "pp_R",
-#                 "log_lik")
+inits_8= rep(
+  list(
+    list(lnalpha = runif(1, 0,3), 
+         betaH = rnorm(1, 0.0002, 0.0001), betaW = rnorm(1, 0.0002, 0.0001),
+         b1 = rnorm(1, mean=0, sd=0.1),
+         b2 = rnorm(1, mean=0, sd=0.1),
+         b4 = rnorm(1, mean=0, sd=0.1),
+         b5 = rnorm(1, mean=0, sd=0.1),
+         tau =  runif(1, 0, 2)
+    )), 3
+)
+pars_track_8 <- c("alpha","betaW", "betaH","b1",
+                  "b2", 
+                  "b4", 
+                  "b5",
+                  "tau", "pp_log_RS",  "log_lik")
 
+ # Fit stan model------------
 
-# # Fit stan model------------
-
-# fit model full model - no autocorrelation
-fit_ricker <- stan( file = "ricker_linear_logRS_full.stan", 
-                    data=dat, chains=3, iter=10000, init=inits, 
-                    #control=list(adapt_delta=0.9),
-                    cores=2, pars=pars_track)
-
-# fit model 2 beta terms
+# fit Model 8b (one beta)
 fit_ricker_8b <- stan( file = "ricker_linear_logRS_8b.stan", 
-                    data=dat, chains=3, iter=10000, init=inits_8b, 
-                    #control=list(adapt_delta=0.9),
-                    cores=2, pars=pars_track_8b)
+                       data=dat, chains=3, iter=10000, init=inits_8b, 
+                       cores=2, pars=pars_track_8b)
 
-# Autocorrelation
-# fit_ricker <- stan( file = "ricker_linear_logRS.stan", 
-#                       data=dat, chains=3, iter=10000, init=inits, 
-#                       #control=list(adapt_delta=0.9),
-#                       cores=2, pars=pars_track)
+# fit Model 8 (two betas, wild and hatchery)
+fit_ricker_8 <- stan( file = "ricker_linear_logRS_8.stan", 
+                      data=dat, chains=3, iter=10000, init=inits_8, 
+                      cores=2, pars=pars_track_8)
 
 # make output into data frame
 post <- as.data.frame(fit_ricker_8b)
 write.csv(post, "./data/posterior_samples.csv")
+
 
 # parameters to graph
 pars_graph_8b <- c("alpha", 
@@ -385,6 +363,16 @@ pars_graph_8b <- c("alpha",
                 "b4", 
                 "b5", 
                 "tau"
+)
+pars_graph_8 <- c("alpha", 
+                   "betaH",
+                  "betaW",
+                   "b1", 
+                   "b2", 
+                   #"b3", 
+                   "b4", 
+                   "b5", 
+                   "tau"
 )
 
 # Plot estimates and CIs
@@ -397,19 +385,14 @@ png(filename="./figures/fig_estimates_CI_covariates_only.png", width=300, height
 plot(fit_ricker_8b, pars=pars_graph_8b[3:6])
 dev.off()
 
-# Check wild vs. hatchery beta terms
-#plot(fit_ricker, pars="beta")
-#plot(fit_ricker_2b, pars=c("betaW", "betaH"))
-#plot(fit_ricker_2b, pars=pars_graph_2b[4:8])
-
 # Get model summary model 8b
 mod_sum_8b <- round(summary(fit_ricker_8b,pars= pars_graph_8b, probs=c(0.1,0.9))$summary,6)
 mod_sum_8b
 write.csv(mod_sum_8b, "estimates.csv")
 
-# Get model summary
-mod_sum <- round(summary(fit_ricker,pars= pars_graph, probs=c(0.1,0.9))$summary,6)
-mod_sum 
+# Get model summary for model 8
+mod_sum_8 <- round(summary(fit_ricker_8,pars= pars_graph_8, probs=c(0.1,0.9))$summary,6)
+mod_sum_8 
 
 # Correlation 
 # pairs(fit_ricker, pars=pars_graph)
@@ -419,6 +402,37 @@ png(filename="./figures/fig_traceplot.png", width=700, height=700)
 traceplot(fit_ricker_8b, pars=pars_graph_8b)
 dev.off()
 
+# Supplemental figure - show difference between hatchery and wild spawners ----------
+mod_sum_8b
+mod_sum_8
+png(filename="./figures/fig_ricker-hatchery-wild.png", width=8, height=6, units="in", res=300, pointsize=15)
+plot(d$wild_recruits~ d$total_spawners, xlab="Total spawners", ylab="Wild recruits")
+# add hatchery curve
+curve(mod_sum_8[1,1]* x*exp(-mod_sum_8[2,1]*x), col="red", add=TRUE)
+curve(mod_sum_8[1,1]* x*exp(-mod_sum_8[2,4]*x), col="red", lty=2, add=TRUE)
+curve(mod_sum_8[1,1]* x*exp(-mod_sum_8[2,5]*x), col="red", lty=2, add=TRUE)
+
+# add wild curve
+curve(mod_sum_8[1,1]* x*exp(-mod_sum_8[3,1]*x), col="blue", add=TRUE)
+curve(mod_sum_8[1,1]* x*exp(-mod_sum_8[3,4]*x), col="blue", lty=2, add=TRUE)
+curve(mod_sum_8[1,1]* x*exp(-mod_sum_8[3,5]*x), col="blue", lty=2, add=TRUE)
+
+dev.off()
+
+# Just one beta figure
+png(filename="./figures/fig_ricker-one-beta.png", width=8, height=6, units="in", res=300, pointsize=15)
+plot(d$wild_recruits~ d$total_spawners, xlab="Total spawners", ylab="Wild recruits")
+
+# add curve from pooled model
+curve(mod_sum_8b[1,1]* x*exp(-mod_sum_8b[2,1]*x), add=TRUE)
+curve(mod_sum_8b[1,1]* x*exp(-mod_sum_8b[2,4]*x), lty=2, add=TRUE)
+curve(mod_sum_8b[1,1]* x*exp(-mod_sum_8b[2,5]*x), lty=2, add=TRUE)
+dev.off()
+
+# compare carring capacities
+cc_w <- log(mod_sum_8[1,1])/mod_sum_8[2,1]
+cc_h <- log(mod_sum_8[1,1])/mod_sum_8[3,1]
+cc_h / cc_w
 
 # # Slot machine figures - Recruits and spawners with covariates --------------
 
@@ -526,24 +540,4 @@ fig_raw_hyd_covariates <- ggplot(fd_long[fd_long$year>=1958 & !fd_long$variable=
 fig_raw_hyd_covariates 
 ggsave("./figures/fig_raw_hyd_covariates.png", fig_raw_hyd_covariates, width=10, height=12)
 
-# Check difference between hatchery and wild spawners
-mod_sum
-mod_sum_2b
-plot(d$wild_recruits~ d$total_spawners)
-# add hatchery curve
-curve(mod_sum_2b[1,1]* x*exp(-mod_sum_2b[2,1]*x), col="red", add=TRUE)
-# curve(mod_sum_2b[1,1]* x*exp(-mod_sum_2b[2,4]*x), col="red", lty=2, add=TRUE)
-# curve(mod_sum_2b[1,1]* x*exp(-mod_sum_2b[2,5]*x), col="red", lty=2, add=TRUE)
 
-# add wild curve
-curve(mod_sum_2b[1,1]* x*exp(-mod_sum_2b[3,1]*x), col="blue", add=TRUE)
-# curve(mod_sum_2b[1,1]* x*exp(-mod_sum_2b[3,4]*x), col="blue", lty=2, add=TRUE)
-# curve(mod_sum_2b[1,1]* x*exp(-mod_sum_2b[3,5]*x), col="blue", lty=2, add=TRUE)
-
-# add curve from pooled model
-curve(mod_sum[1,1]* x*exp(-mod_sum[2,1]*x), add=TRUE)
-# curve(mod_sum[1,1]* x*exp(-mod_sum[2,4]*x), lty=2, add=TRUE)
-# curve(mod_sum[1,1]* x*exp(-mod_sum[2,5]*x), lty=2, add=TRUE)
-
-
-rethinking::compare(fit_ricker, fit_ricker_2b)

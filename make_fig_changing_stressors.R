@@ -139,12 +139,14 @@ par(mar=c(0,4,0,0)+0.1)
 plot(x=fdyt$year, y=fdyt$total_yield, type="b", xlab="Year",  xlim=xlims2, ylab=expression("Total annual yield (m"^3*")"))
 
 # spawners
-plot( sp$brood_year,sp$total_spawners ,  type="l", xlab="Year", ylab="Chinook spawners",  xlim=xlims2)
-lines(sp$brood_year, sp$wild_spawners, col = "blue", type = "l", add=TRUE)
-lines(sp$brood_year, sp$hatchery_spawners, col = "orange", type = "l", add=TRUE)
+png(filename="./figures/fig_spawner-time-series.png", width=8, height=6, units="in", res=300, pointsize=15)
+plot( sp$brood_year,sp$total_spawners ,  lwd=2, type="l", xlab="Year", ylab="Chinook spawners")
+lines(sp$brood_year, sp$wild_spawners, lwd=2, col = "blue")
+lines(sp$brood_year, sp$hatchery_spawners, lwd=2, col = "orange")
 legend("topleft", 
        inset=c(0, 0.1),
        legend=c("Total", "Wild", "Hatchery"),
        col=c("black", "blue", "orange"),
        pch="l",
        bty="n" )
+dev.off()
