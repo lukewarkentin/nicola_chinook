@@ -342,6 +342,8 @@ ci95_ef <- apply(ef,2,rethinking::PI,prob=0.95) # get CI of predicted
 ci80_ef <- apply(ef,2,rethinking::PI,prob=0.8) # get CI of predicted
 mn_ef
 
+
+
 # Plot effect size for paper-------
 library(bayesplot)
 fig_effect_sizes <- mcmc_areas(post, pars=c("b5", "b4","b2", "b1"), prob=0.8) + 
