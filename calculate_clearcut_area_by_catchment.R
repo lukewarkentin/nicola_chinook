@@ -62,7 +62,12 @@ write.csv(sdat, "./data/percent_clearcut_since_2000_subcatchments.csv", row.name
 ysdat <- dat %>% group_by(HARVEST_YEAR, GNIS_NAME, STREAM_ORD, AREA_HA, major_trib) %>% summarise(clearcut_area_ha = sum(areaCut_ha, na.rm=TRUE))
 ysdat$percent_cut <- ysdat$clearcut_area_ha / ysdat$AREA_HA
 
-
+# Get percent cut of Nicola from 2002 to 2009
+sum(ysdat$percent_cut[ysdat$HARVEST_YEAR %in% 2003:2011 & ysdat$GNIS_NAME=="Nicola River"])
+ggplot(ysdat[ysdat$GNIS_NAME=="Nicola River", ], aes(y=clearcut_area_ha, x=HARVEST_YEAR)) +
+  geom_point() 
+ggplot(ysdat[ysdat$GNIS_NAME=="Nicola River", ], aes(y=rollapplyr(percent_cut, 20, sum, align="right",partial=TRUE), x=HARVEST_YEAR)) +
+  geom_point() 
 
 # Figures -----
 

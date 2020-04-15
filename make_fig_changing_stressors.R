@@ -3,6 +3,7 @@ library(lubridate)
 library(dplyr)
 library(ggplot2)
 library(tidyhydat)
+library(ggforce)
 
 # Weather data
 
@@ -85,7 +86,7 @@ axis(side=1, labels=NA, at=seq(1870, 2020, 10))
 #lines(x=aug_temp$year, y=aug_temp$min, col="gray")
 #lines(x=aug_temp$year, y=aug_temp$max, col="gray")
 lines(loess(mean~year, data=aug_temp)$fitted ~ loess(mean~year, data=aug_temp)$x)
-text(x=1880, y=20, label="a")
+text(x=1880, y=20, label="b")
 
 # Jan temps
 plot(x=jan_temp$year, y=jan_temp$mean, type="b",  xlim=xlims, ylab=expression(atop("Mean Jan. air" , paste( "temperature (",degree*C,")"))), col=adjustcolor("black", alpha=0.5), xaxt="n") #ylim=c(min(jan_temp$mean, na.rm=TRUE), max(jan_temp$max)))
@@ -94,7 +95,7 @@ abline(h=0, lty=2, col="gray")
 #lines(x=jan_temp$year, y=jan_temp$min, col="gray")
 #lines(x=jan_temp$year, y=jan_temp$max, col="gray")
 lines(loess(mean~year, data=jan_temp)$fitted ~ loess(mean~year, data=jan_temp)$x)
-text(x=1880, y=-5, label="b")
+text(x=1880, y=-5, label="c")
 
 # precip
 plot(x=rain$year, y=rain$rain, type="b", pch=1, col=adjustcolor("black", alpha=0.5), xlim=xlims, ylab="Rain (mm)\nand snow (cm)", ylim=c(min(snow$snow)-10,max(rain$rain) +10 ), xaxt="n")
@@ -103,7 +104,7 @@ points(x=snow$year, y=snow$snow, type="b", pch= 19, lty=1, adjustcolor("black", 
 lines(loess(rain~year, data=rain)$fitted ~ loess(rain~year, data=rain)$x)
 lines(loess(snow~year, data=snow)$fitted ~ loess(snow~year, data=snow)$x)
 text(x=c(2000, 2000), y=c(340,10), labels=c("rain", "snow"))
-text(x=1880, y=250, label="c")
+text(x=1880, y=250, label="d")
 
 # legend("topleft", 
 #        inset=c(0, 0.1),
@@ -115,14 +116,14 @@ text(x=1880, y=250, label="c")
 # water linences
 plot(wl2$cumvolume_cmy/1000000 ~ year(wl2$Priority.Date), type="b", xlim=xlims, ylab=expression(atop("Water allocations" , (m^3%.%10^6%.%"year"^-1))), xaxt="n")
 axis(side=1, labels=NA,at=seq(1870, 2020, 10) )
-text(x=1880, y=35, label="d")
+text(x=1880, y=35, label="e")
 
 # cutblock area
 par(mar=c(9,6,0,0)+0.3, bty="n", las=1, xaxt="s", ann=TRUE)
-plot(x=ccs$harvest_year, y=cumsum(ccs$area_ha)/7289, ylab="Cumulative percent\nof watershed clearcut", type="b", xlim=xlims, xlab="Year", xaxt="n")
+plot(x=ccs$harvest_year, y=rollapplyr(ccs$area_ha, 20, sum, align="right",partial=TRUE)/7289, ylab="Percent clearcut\nin previous 20 years", type="b", xlim=xlims, ylim=c(0,20), xlab="Year", xaxt="n")
 #plot(x=ccs$harvest_year, y=cumsum(ccs$area_ha)/7289, ylab="Cumulative percent\nof watershed clearcut", type="b", xlim=xlims, xlab="Year", xaxt="n", col=ifelse(ccs$harvest_year<2003, "black", "orange"), pch=ifelse(ccs$harvest_year<2003, 1 ,19), cex=0.9)
 axis(side=1, at=seq(1870, 2020, 10), labels=seq(1870, 2020, 10), las=2)
-text(x=1880, y=20, label="e")
+text(x=1880, y=17, label="f")
 
 dev.off()
 
@@ -137,6 +138,9 @@ par(mar=c(0,4,0,0)+0.1)
 
 # total annual flow
 plot(x=fdyt$year, y=fdyt$total_yield, type="b", xlab="Year",  xlim=xlims2, ylab=expression("Total annual yield (m"^3*")"))
+lines(loess(total_yield~year, data=fdyt)$fitted ~ loess(total_yield~year, data=fdyt)$x)
+mean(fdyt$total_yield)
+
 
 # spawners
 png(filename="./figures/fig_spawner-time-series.png", width=8, height=6, units="in", res=300, pointsize=15)
