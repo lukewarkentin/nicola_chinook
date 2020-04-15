@@ -22,6 +22,7 @@ d_unscaled <- read.csv("./data/model_data_unscaled.csv")
 # read in data frame of posterior samples of model parameters
 post <- read.csv("./data/posterior_samples.csv")
 
+
 # get posterior predictions for recruits
 ppd <- post[, grep("pp_R", colnames(post))]
 mn_ppd <- apply(ppd,2,mean) # get mean of predicted
@@ -333,8 +334,7 @@ dev.off()
 exp(mean_pred_periods1_4)
 xint_unscaled
 
-
- # Plot effect sizes -------
+ # Calculate environmental effects on recruitment for paper results-------
 # get posterior predictions beta terms
 ef <- post[, grep("b[[:digit:]]", colnames(post))]
 mn_ef <- apply(ef,2,mean) # get mean of predicted
@@ -342,6 +342,145 @@ ci95_ef <- apply(ef,2,rethinking::PI,prob=0.95) # get CI of predicted
 ci80_ef <- apply(ef,2,rethinking::PI,prob=0.8) # get CI of predicted
 mn_ef
 
+# Write function to convert any aribitrary flow into scaled according to actual values
+faux_scale <- function(x, scale_by) {
+  (x -  mean(scale_by)) / sd(scale_by)
+}
+
+# test
+faux_scale(x= 10.3, scale_by=d_unscaled$aug_mean_flow_rear)
+# check that qauntiles are equal
+quantile(d$smolt_age3_survival, 0.25)
+faux_scale(x=quantile(d_unscaled$smolt_age3_survival, 0.25), scale_by=d_unscaled$smolt_age3_survival)
+
+# write function to calculate recruits from each run of the model for a series of flows (one beta)
+predict_recruits <- function(smolt_age3_surv, aug_flow, aug_flow_rear, ice_days, spawners) {
+  logRS <- log(mean(post$alpha)) - mean(post$beta) * mean(d$total_spawners) + mean(post$b1) * smolt_age3_surv + mean(post$b2) * aug_flow + mean(post$b4) * ice_days + mean(post$b5) * aug_flow_rear 
+  RS <- exp(logRS)
+  R <- RS * spawners
+  return(c(RS, R))}
+
+# predict recruits at mean and 50% below mean rearing flows
+mean(d_unscaled$aug_mean_flow_rear)
+mean(d_unscaled$aug_mean_flow_rear) - 0.5 * mean(d_unscaled$aug_mean_flow_rear)
+
+pred1 <- predict_recruits(smolt_age3_surv=0,
+                 aug_flow = 0, 
+                 aug_flow_rear= faux_scale(mean(d_unscaled$aug_mean_flow_rear), d_unscaled$aug_mean_flow_rear), 
+                 ice_days = 0,
+                 spawners = mean(d$total_spawners))
+# predict recruits at lower rearing flows
+pred2 <- predict_recruits(smolt_age3_surv=0,
+                 aug_flow = 0, 
+                 aug_flow_rear= faux_scale( mean(d_unscaled$aug_mean_flow_rear) - 0.5 * mean(d_unscaled$aug_mean_flow_rear), d_unscaled$aug_mean_flow_rear),
+
+                 ice_days = 0,
+                 spawners = mean(d$total_spawners))
+# calculate percent chage
+(pred2 - pred1) / pred1
+
+# Caculate change in recruitment for spawning flows 50% of average
+pred1 <- predict_recruits(smolt_age3_surv=0,
+                          aug_flow = faux_scale(mean(d_unscaled$aug_mean_flow), d_unscaled$aug_mean_flow), 
+                          aug_flow_rear= 0, 
+                          ice_days = 0,
+                          spawners = mean(d$total_spawners))
+# predict recruits at lower rearing flows
+pred2 <- predict_recruits(smolt_age3_surv=0,
+                          aug_flow = faux_scale( mean(d_unscaled$aug_mean_flow) - 0.5 * mean(d_unscaled$aug_mean_flow), d_unscaled$aug_mean_flow), 
+                          aug_flow_rear= 0,
+                          ice_days = 0,
+                          spawners = mean(d$total_spawners))
+# calculate percent chage
+(pred2 - pred1) / pred1
+
+# Calculate change in recruitment for rearing and spawning flows 50% of average
+pred1 <- predict_recruits(smolt_age3_surv=0,
+                          aug_flow = faux_scale(mean(d_unscaled$aug_mean_flow), d_unscaled$aug_mean_flow), 
+                          aug_flow_rear= faux_scale(mean(d_unscaled$aug_mean_flow_rear), d_unscaled$aug_mean_flow_rear), 
+                          ice_days = 0,
+                          spawners = mean(d$total_spawners))
+# predict recruits at lower rearing flows
+pred2 <- predict_recruits(smolt_age3_surv=0,
+                          aug_flow = faux_scale( mean(d_unscaled$aug_mean_flow) - 0.5 * mean(d_unscaled$aug_mean_flow), d_unscaled$aug_mean_flow), 
+                          aug_flow_rear= faux_scale( mean(d_unscaled$aug_mean_flow_rear) - 0.5 * mean(d_unscaled$aug_mean_flow_rear), d_unscaled$aug_mean_flow_rear),
+                          ice_days = 0,
+                          spawners = mean(d$total_spawners))
+# calculate percent chage
+(pred2 - pred1) / pred1
+
+# predict recruits if flows were at kosakoski and hamilton levels for spawning and rearing
+predict_recruits(smolt_age3_surv=0,
+                 aug_flow = faux_scale(5.66, scale_by=d_unscaled$aug_mean_flow_rear), 
+                 aug_flow_rear= faux_scale(5.66, scale_by=d_unscaled$aug_mean_flow_rear), 
+                 ice_days = 0,
+                 spawners = mean(d$total_spawners))
+# add poor ocean survival (25% quantile)
+predict_recruits(smolt_age3_surv=quantile(d$smolt_age3_survival, 0.25),
+                 aug_flow = faux_scale(5.66, scale_by=d_unscaled$aug_mean_flow_rear), 
+                 aug_flow_rear= faux_scale(5.66, scale_by=d_unscaled$aug_mean_flow_rear), 
+                 ice_days = 0,
+                 spawners = mean(d$total_spawners))
+
+# calculate difference in recruits for aug flow rearing effect in periods 1 and 4
+# predict recruits for mean flow from period 1
+pred1 <- predict_recruits(smolt_age3_surv=0,
+                 aug_flow = 0, 
+                 aug_flow_rear= faux_scale(flows_periods1_4[1], scale_by=d_unscaled$aug_mean_flow_rear), 
+                 ice_days = 0,
+                 spawners = mean(d$total_spawners))
+# predict recruits for mean flow from period 4
+pred2 <- predict_recruits(smolt_age3_surv=0,
+                 aug_flow = 0, 
+                 aug_flow_rear= faux_scale(flows_periods1_4[2], scale_by=d_unscaled$aug_mean_flow_rear), 
+                 ice_days = 0,
+                 spawners = mean(d$total_spawners))
+# calculate percent chage
+(pred2 - pred1) / pred1
+
+# Calculate difference in recruits for aug flow spawning and rearing effect in periods 1 and 4
+pred1 <- predict_recruits(smolt_age3_surv=0,
+                 aug_flow = faux_scale(flows_periods1_4[1], scale_by=d_unscaled$aug_mean_flow_rear), 
+                 aug_flow_rear= faux_scale(flows_periods1_4[1], scale_by=d_unscaled$aug_mean_flow_rear), 
+                 ice_days = 0,
+                 spawners = mean(d$total_spawners))
+# predict recruits for mean flow from period 4
+pred2 <- predict_recruits(smolt_age3_surv=0,
+                 aug_flow = faux_scale(flows_periods1_4[2], scale_by=d_unscaled$aug_mean_flow_rear), 
+                 aug_flow_rear= faux_scale(flows_periods1_4[2], scale_by=d_unscaled$aug_mean_flow_rear), 
+                 ice_days = 0,
+                 spawners = mean(d$total_spawners))
+# calculate percent chage
+(pred2 - pred1) / pred1
+
+# Calculate difference in recruits for aug flow spawning effect in periods 1 and 4
+pred1 <- predict_recruits(smolt_age3_surv=0,
+                 aug_flow = faux_scale(flows_periods1_4[1], scale_by=d_unscaled$aug_mean_flow_rear), 
+                 aug_flow_rear= 0, 
+                 ice_days = 0,
+                 spawners = mean(d$total_spawners))
+# predict recruits for mean flow from period 4
+pred2 <-predict_recruits(smolt_age3_surv=0,
+                 aug_flow = faux_scale(flows_periods1_4[2], scale_by=d_unscaled$aug_mean_flow_rear), 
+                 aug_flow_rear= 0, 
+                 ice_days = 0,
+                 spawners = mean(d$total_spawners))
+# calculate percent chage
+(pred2 - pred1) / pred1
+
+# Calculate difference in recruitment for ice days effect
+pred1 <- predict_recruits(smolt_age3_surv=0,
+                 aug_flow = 0, 
+                 aug_flow_rear= 0, 
+                 ice_days = 0,
+                 spawners = mean(d$total_spawners))
+pred2 <- predict_recruits(smolt_age3_surv=0,
+                 aug_flow = 0, 
+                 aug_flow_rear= 0, 
+                 ice_days = faux_scale(mean(d_unscaled$ice_days) + 10, d_unscaled$ice_days),
+                 spawners = mean(d$total_spawners))
+# calculate percent chage
+(pred2 - pred1) / pred1
 
 
 # Plot effect size for paper-------
