@@ -101,7 +101,7 @@ cor(log(d$wild_recruits/d$total_spawners), mn_pp_log_RS)^2
 # Plot predicted vs observed log(recruits/spawner)
 png(filename="./figures/fig_predicted~observed_log_RS.png", width=1200, height=800, pointsize = 30)
 par(mar=c(4,4,0,0) +0.1)
-plot(mn_pp_log_RS ~ log(d$wild_recruits/d$total_spawners), ylim=c(min(ci_pp_log_RS), max(ci_pp_log_RS)), xlab="Observed log(recruits/spawner)", ylab="Predicted log(recruits/spawner)")
+plot(mn_pp_log_RS ~ log(d$wild_recruits/d$total_spawners), ylim=c(min(ci_pp_log_RS), max(ci_pp_log_RS)), xlab=expression('Observed log'[e]*'(Recruits/Spawner)'), ylab=expression('Predicted log'[e]*'(Recruits/Spawner)'))
 segments(x0= log(d$wild_recruits/d$total_spawners), y0=ci_pp_log_RS[1,], y1=ci_pp_log_RS[2,], lwd=1)
 abline(b=1, a=0, lwd=2, lty=2, col="orange")
 dev.off()
@@ -221,6 +221,8 @@ table(fd$period[fd$month==8])
 str(fd)
 fd1 <- fd %>% group_by(period) %>% mutate(period_name = paste0(min(year), "-", max(year), " (", n_distinct(year), " yrs)")) %>% ungroup()
 
+
+
 # summarise for august only
 fd2 <- fd1 %>% filter(month==8) %>% group_by(year, period, month) %>% summarise(mean_aug_flow = mean(Value, na.rm=TRUE))
 table(fd2$period) # check number of years in each period bin
@@ -231,6 +233,11 @@ dens <- density(x=fd1$Value[fd1$month==8 ], na.rm=TRUE)
 #cols <- c("darkblue", "green4", "darkgoldenrod1", "firebrick")
 cbbPalette <- c("#000000", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7") # colour blind palette with black
 cols <- cbbPalette[c(1,3,2,7)]
+
+# get long-term average august flows for paper
+fd %>% filter(month==8) %>% summarise(avg_aug_flow = mean(Value, na.rm=TRUE))
+fd %>% filter(month==8) %>% group_by(period) %>% summarise(avg_aug_flow = mean(Value, na.rm=TRUE))
+
 
 # Set up for cumulative proportion flows
 cdf1 <- ecdf(fd2$mean_aug_flow[fd2$period==1 ])
@@ -285,7 +292,7 @@ abline(v=xint_unscaled, col="gray", lty=4, lwd=2)
 #plot effect of mean aug flow on recruitment
 #plot(log(d$wild_recruits/d$total_spawners) ~ d$aug_mean_flow_rear, xlab="Mean Aug flow cms (scaled)", ylab="log(R/S)")
 par(mar=c(4,4,0.1,4))
-plot(pred_flow_unscaled, pred_mean_mean, type="l", lwd=1.4,  ylim=c(min(pred_75_HPDI),  max(pred_25_HPDI)), xlim=c(0,max(d_unscaled$aug_mean_flow_rear)), xlab=expression("Mean Aug flow in Nicola River (m"^3*"s"^-1*")"), ylab=expression("log"[e]*"(Recruits/Spawener)"), las=1)
+plot(pred_flow_unscaled, pred_mean_mean, type="l", lwd=1.4,  ylim=c(min(pred_75_HPDI),  max(pred_25_HPDI)), xlim=c(0,max(d_unscaled$aug_mean_flow_rear)), xlab=expression("Mean August flow (m"^3*"s"^-1*")"), ylab=expression("log"[e]*"(Recruits/Spawner)"), las=1)
 abline(h=0, lty=3)
 #plot(log(d$wild_recruits/d$total_spawners) ~ d$aug_mean_flow_rear, xlab="Mean Aug flow cms", ylab="log(R/S)")
 #   for(j in 4400:4500) {
@@ -313,6 +320,31 @@ abline(v=xint_unscaled, col="gray", lty=4, lwd=2)
 
 dev.off()
 
+# Plot for research summary for Nicola Basin Collaborative- Residuals of model formula without rearing flows, vs. rearing flows.  -----------
+# write a funtion to get predicted log(Recruits/Spawner) using mean estimates of covariates but not august rearing flows
+predict_logRS_no_rearing_flows <- function(smolt_age3_surv, aug_flow, ice_days, spawners) {
+  logRS <- log(mean(post$alpha)) - mean(post$beta) * mean(d$total_spawners) + mean(post$b1) * smolt_age3_surv + mean(post$b2) * aug_flow + mean(post$b4) * ice_days
+return(logRS) 
+}
+pred_logRS_no_rearing_flows <- 1:nrow(d) # create a numeric vector the same length as the number of cohorts
+# apply the function to the data, to get predicted logRS from all covariates except rearing flows
+for (i in 1:nrow(d)) {
+  pred_logRS_no_rearing_flows[i] <- predict_logRS_no_rearing_flows(smolt_age3_surv= d$smolt_age3_surv[i], aug_flow = d$aug_mean_flow[i], ice_days=d$ice_days[i], spawners=d$total_spawners[i])
+} 
+
+# Plot, logR/S
+png(filename = "./figures/fig_resid_RS_without_aug_flows.png", width=6, height=4, units="in", res=300, pointsize=10)
+par(mar=c(4,6,0.1,4))
+plot(x=d_unscaled$aug_mean_flow_rear, y=  log(d$recruits_per_spawner) - pred_logRS_no_rearing_flows, xlab=expression("Mean August flow during rearing (m"^3*"s"^-1*")"), ylab=expression(atop("Observed - predicted log"[e]*"(Recruits/Spawner)", "without Aug. rearing flow effect")), las=1, cex=1.3)
+abline(lm(d$recruits_per_spawner - exp(pred_logRS_no_rearing_flows) ~ d_unscaled$aug_mean_flow_rear))
+dev.off()
+
+# # Plot, with RS
+# png(filename = "./figures/fig_resid_logRS_without_aug_flows.png", width=6, height=4, units="in", res=300, pointsize=10)
+# par(mar=c(4,6,0.1,4))
+# plot(x=d_unscaled$aug_mean_flow_rear, y=  d$recruits_per_spawner - exp(pred_logRS_no_rearing_flows), xlab=expression("Mean August flow during rearing (m"^3*"s"^-1*")"), ylab="Observed - predicted Recruits/Spawner \n without Aug. rearing flow effect", las=1, cex=1.3)
+# abline(lm(d$recruits_per_spawner - exp(pred_logRS_no_rearing_flows) ~ d_unscaled$aug_mean_flow_rear))
+# dev.off()
 
 # Plot for IDEAS talk - simple ---------
 flows_periods1_4 <- c(median(fd2$mean_aug_flow[fd2$period==1]), median(fd2$mean_aug_flow[fd2$period==4]))
@@ -322,7 +354,7 @@ mean_pred_periods1_4 <- apply(pred_periods1_4, 2, mean)
 
 png(filename = "./figures/fig_logRS_flow_simple_IDEAS.png", width=10, height=6, units="in", res=300, pointsize=20)
 par(mar=c(4,4,0.3,0.3),  bty="L")
-plot(pred_flow_unscaled, pred_mean_mean, type="l", lwd=1.4,  ylim=c(min(pred_mean_HPDI),  max(pred_mean_HPDI)), xlim=c(min(d_unscaled$aug_mean_flow_rear),max(d_unscaled$aug_mean_flow_rear)), xlab=expression("Mean Aug flow in Nicola River (m"^3*"s"^-1*")"), ylab="Recruits/Spawner", yaxt="n", las=1)
+plot(pred_flow_unscaled, pred_mean_mean, type="l", lwd=1.4,  ylim=c(min(pred_mean_HPDI),  max(pred_mean_HPDI)), xlim=c(min(d_unscaled$aug_mean_flow_rear),max(d_unscaled$aug_mean_flow_rear)), xlab=expression("Mean Aug flow (m"^3*"s"^-1*")"), ylab="Recruits/Spawner", yaxt="n", las=1)
 abline(h=0, lty=3)
 rethinking::shade(pred_mean_HPDI, pred_flow_unscaled, col=adjustcolor(col="black", alpha=0.2) )
 axis(side=2, labels=sec_yax, at=log(sec_yax), las=1)
@@ -483,13 +515,13 @@ pred2 <- predict_recruits(smolt_age3_surv=0,
 (pred2 - pred1) / pred1
 
 
-# Plot effect size for paper-------
+# Plot effect sizes for paper-------
 library(bayesplot)
 fig_effect_sizes <- mcmc_areas(post, pars=c("b5", "b4","b2", "b1"), prob=0.8) + 
   xlab(expression("Effect on log"[e]*"(Recruits/Spawner)")) +
   ylab("Parameter") +
   geom_vline(aes(xintercept=0)) +
-  scale_y_discrete(labels=c("b5 (Aug. flow rearing)", "b4 (ice days)", "b2 (Aug. flow spawning)", "b1 (smolt to age 3 surv.)")) +
+  scale_y_discrete(labels=c("Aug. flow rearing (b5)", "Ice days (b4)", "Aug. flow spawning (b2)", "Smolt to age 3 survival (b1)")) +
   theme_classic()
 fig_effect_sizes
 ggsave("./figures/fig_effect_sizes.png", fig_effect_sizes, width=6, height=6 )
@@ -554,7 +586,16 @@ fd_dif <- merge(fd_dif, periods_sum, by="period", all.x=TRUE)
 fd_dif$perc_yrs_data <- fd_dif$count_years / fd_dif$num_years * 100
 
 # join period name to flow data 
-fd <- merge(fd, periods_sum, by="period", all.x=TRUE)
+fd <- merge(fd, periods_sum, by="period", all.x=TRUE) 
+
+
+# calculate changes in summer yield for periods 1 and 4 and percent change - for paper ------------
+# get average summer yield by period
+fd %>% filter(month %in% c(8)) %>% 
+  group_by(year, period) %>% 
+  summarise(summer_yield = sum(Value * 86400, na.rm=TRUE)) %>%
+  group_by(period) %>%
+  summarise(mean_summer_yield = mean(summer_yield, na.rm=TRUE))
   
 ggplot(fd_avg_prd, aes(y=avg_flow, x=yday, colour=factor(period))) + 
   geom_line(size=1.2) +
@@ -567,6 +608,23 @@ ggplot(fd_avg_prd, aes(y=avg_flow, x=yday, colour=factor(period))) +
 # fd_change$dif4_3 <- (fd_change$prd4 - fd_change$prd3) / fd_change$prd3 * 100
 # # back to long format 
 # fd_change_l <- fd_change[,c(1,6:8)] %>% pivot_longer(cols=c(dif4_2, dif4_1, dif4_3), names_to = "prd_change", values_to = "perc_change")
+
+# Figure with august flows in boxplots by year - maybe for supplemental--------
+x_brks <- seq(min(fd$year), max(fd$year), 1) # get year breaks
+x_brks_2 <- seq(round(min(x_brks), -1), round(max(x_brks),-1), 5 )
+png(filename = "./figures/fig_aug_flows.png", width=8, height=6, units="in", res=300, pointsize=20)
+fd %>% filter(month==8) %>% 
+  ggplot(., aes(y=Value, x=year, group=year)) + 
+  geom_boxplot() + 
+  ylab(expression("Daily discharge in August (m"^3*"s"^-1*")"))+
+  xlab("Year") +
+  scale_x_continuous(breaks=x_brks_2, labels=x_brks_2, limits=c(min(x_brks)-1, max(x_brks)+1), expand=c(0,0), minor_breaks=x_brks_2) +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle=90, vjust=0.5),
+        panel.grid.minor.x=element_line(colour=adjustcolor("gray", alpha=0.5)))
+dev.off()
+
+round(1922,-1)
 
 # setup for labels
 days_month <- as.vector(table(fd$month, fd$year)[,"1970"])

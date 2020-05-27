@@ -3,7 +3,7 @@ library(lubridate)
 library(dplyr)
 library(ggplot2)
 library(tidyhydat)
-library(ggforce)
+library(zoo)
 
 # Weather data
 
@@ -61,11 +61,17 @@ fd$year <- year(fd$Date)
 fd <- fd[!is.na(fd$Value), ] 
 fdy <- fd[fd$year %in% names(which(table(fd$year)>=365)) , ]
 head(fdy)
-fdyt <- fdy %>% group_by(year) %>% summarise(total_yield = sum(Value)) 
+fdyt <- fdy %>% group_by(year) %>% summarise(total_yield = sum(Value* 86400)) # expand m3/s to m3/day and sum to get annual yield
 
 # spawner data
 # read in full time series of spawning data
 sp <- read.csv("./data/full_spawner_time_series.csv")
+
+# get year range for each data set
+range(wd$date)
+range(cc$HARVEST_YE)
+range(fdm$Year)
+range(wl$Priority.Date, na.rm=TRUE)
 
 #xlims <- c(1910, 2020)
 xlims <- c(min(year(wl2$Priority.Date))-2, 2020+2)
@@ -136,7 +142,7 @@ plot(x=fdma_mean$Year, fdma_mean$Value, type="b" ,  xlim=xlims, ylim=c(0, max(fd
 
 par(mar=c(0,4,0,0)+0.1)
 
-# total annual flow
+# Calculate mean annual flow from daily flow for paper --------
 plot(x=fdyt$year, y=fdyt$total_yield, type="b", xlab="Year",  xlim=xlims2, ylab=expression("Total annual yield (m"^3*")"))
 lines(loess(total_yield~year, data=fdyt)$fitted ~ loess(total_yield~year, data=fdyt)$x)
 mean(fdyt$total_yield)
