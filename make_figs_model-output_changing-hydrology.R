@@ -237,7 +237,7 @@ cols <- cbbPalette[c(1,3,2,7)]
 # get long-term average august flows for paper
 fd %>% filter(month==8) %>% summarise(avg_aug_flow = mean(Value, na.rm=TRUE))
 fd %>% filter(month==8) %>% group_by(period) %>% summarise(avg_aug_flow = mean(Value, na.rm=TRUE))
-
+(8.5-11.5) / 11.5 # calculate change in average august flows from period 1 to 4
 
 # Set up for cumulative proportion flows
 cdf1 <- ecdf(fd2$mean_aug_flow[fd2$period==1 ])
@@ -346,20 +346,20 @@ dev.off()
 # abline(lm(d$recruits_per_spawner - exp(pred_logRS_no_rearing_flows) ~ d_unscaled$aug_mean_flow_rear))
 # dev.off()
 
-# Plot for IDEAS talk - simple ---------
+# Plot for IDEAS talk and research summary - Recruits / spawner and august flow - simple ---------
 flows_periods1_4 <- c(median(fd2$mean_aug_flow[fd2$period==1]), median(fd2$mean_aug_flow[fd2$period==4]))
 flows_periods1_4_scale <- (flows_periods1_4- mean(d_unscaled$aug_mean_flow_rear)) / sd(d_unscaled$aug_mean_flow_rear)
 pred_periods1_4 <- sapply(flows_periods1_4_scale, pred_mean_sp)
 mean_pred_periods1_4 <- apply(pred_periods1_4, 2, mean)
 
-png(filename = "./figures/fig_logRS_flow_simple_IDEAS.png", width=10, height=6, units="in", res=300, pointsize=20)
+png(filename = "./figures/fig_logRS_flow_simple_IDEAS.png", width=6, height=6, units="in", res=300, pointsize=20)
 par(mar=c(4,4,0.3,0.3),  bty="L")
 plot(pred_flow_unscaled, pred_mean_mean, type="l", lwd=1.4,  ylim=c(min(pred_mean_HPDI),  max(pred_mean_HPDI)), xlim=c(min(d_unscaled$aug_mean_flow_rear),max(d_unscaled$aug_mean_flow_rear)), xlab=expression("Mean Aug flow (m"^3*"s"^-1*")"), ylab="Recruits/Spawner", yaxt="n", las=1)
 abline(h=0, lty=3)
 rethinking::shade(pred_mean_HPDI, pred_flow_unscaled, col=adjustcolor(col="black", alpha=0.2) )
 axis(side=2, labels=sec_yax, at=log(sec_yax), las=1)
 #abline(v=xint_unscaled, col="gray", lty=4, lwd=2)
-points(y= mean_pred_periods1_4, x= flows_periods1_4, pch= 19, cex=2, col=c("blue", "red"))
+# points(y= mean_pred_periods1_4, x= flows_periods1_4, pch= 19, cex=2, col=c("blue", "red"))
 #text(y=rep(1,2), x=flows_periods1_4, labels= list(bquote(.(round(flows_periods1_4[1],1)) ~ m^3 ~ s^-1), bquote(.(round(flows_periods1_4[2],1)) ~ m^3 ~ s^-1)), offset=1, col=c("blue", "red") )
 #arrows(x0=flows_periods1_4[1], x1= flows_periods1_4[2], y0=1, y1=1)
 dev.off()
