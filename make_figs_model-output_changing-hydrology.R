@@ -251,12 +251,22 @@ p2 <- cdf2(x)
 p3 <- cdf3(x)
 p4 <- cdf4(x)
 
+# For % Mean Annual Discharge (MAD)
+# Calculate mean annual discharge for Nicola, using only days from years with complete records 
+# make table of flow observations by year
+test <- table(fd$year)
+# get years which are complete 
+yrs_complete <- as.numeric(dimnames(test)[[1]])[which(as.numeric(test)>=365)]
+# calculate MAD for vlaues from complete years only
+mad <- mean(fd$Value[fd$year %in% yrs_complete], na.rm=TRUE)
+# get %MAD axis labels
+
 
 # Plot with cumulative----------
 png(filename = "./figures/fig_logRS_flow.png", width=8, height=11, units="in", res=300, pointsize=20)
 
-layout(matrix(c(1,2,3,3,3), nrow=5, ncol=1, byrow = TRUE))
-par(mar=c(0.1,4,0.1,4), bty="L")
+layout(matrix(c(1,1,1,2,2,3,3,3,3,3,3), nrow=9, ncol=1, byrow = TRUE))
+par(mar=c(0.1,4,4,4), bty="L")
 
 plot(x, p1, type="l", col=cols[1], ylab="Cumulative proportion", main="", xlim=c(0,max(d_unscaled$aug_mean_flow_rear)), lwd=2, las=1)
 lines(x, p2, col=cols[2], lwd=2)
@@ -272,6 +282,11 @@ legend("bottomright",
 abline(v=xint_unscaled, col="gray", lty=4, lwd=2)
 abline(h=0.5, lty=3)
 
+# add %MAD axis
+axis(side=3, labels=seq(0,1, 0.1), at=seq(0,1, 0.1)* mad, las=1)
+mtext("% Mean annual discharge", side=3, line=2, cex=0.7)
+
+
 #png(filename = "./figures/fig_logRS~flow.png", width=1200, height=1600, pointsize = 25)
 
 #par(mfrow=c(2,1), mar=c(0.1,4,0.1,4), bty="L")
@@ -279,6 +294,8 @@ abline(h=0.5, lty=3)
 #for(i in 2:length(unique(fd1$period))) {
 #lines(density(x=fd$Value[fd1$month==8 & fd1$period==i ], na.rm=TRUE), col=cols[i], lwd=2)
 #}
+par(mar=c(0.1,4,0.1,4), bty="L")
+
 plot(density(x=fd2$mean_aug_flow[fd2$period==1 ], na.rm=TRUE), col=cols[1], main="", ylim=c(0,0.17), xlim=c(0,max(d_unscaled$aug_mean_flow_rear)), lwd=2, las=1  )
 for(i in 2:length(unique(fd2$period))) {
   lines(density(x=fd2$mean_aug_flow[fd2$period==i ], na.rm=TRUE), col=cols[i], lwd=2)
@@ -336,7 +353,7 @@ for (i in 1:nrow(d)) {
 png(filename = "./figures/fig_resid_RS_without_aug_flows.png", width=6, height=4, units="in", res=300, pointsize=10)
 par(mar=c(4,6,0.1,4))
 plot(x=d_unscaled$aug_mean_flow_rear, y=  log(d$recruits_per_spawner) - pred_logRS_no_rearing_flows, xlab=expression("Mean August flow during rearing (m"^3*"s"^-1*")"), ylab=expression(atop("Observed - predicted log"[e]*"(Recruits/Spawner)", "without Aug. rearing flow effect")), las=1, cex=1.3)
-abline(lm(d$recruits_per_spawner - exp(pred_logRS_no_rearing_flows) ~ d_unscaled$aug_mean_flow_rear))
+#abline(lm(d$recruits_per_spawner - exp(pred_logRS_no_rearing_flows) ~ d_unscaled$aug_mean_flow_rear))
 dev.off()
 
 # # Plot, with RS
@@ -612,14 +629,16 @@ ggplot(fd_avg_prd, aes(y=avg_flow, x=yday, colour=factor(period))) +
 # Figure with august flows in boxplots by year - maybe for supplemental--------
 x_brks <- seq(min(fd$year), max(fd$year), 1) # get year breaks
 x_brks_2 <- seq(round(min(x_brks), -1), round(max(x_brks),-1), 5 )
-png(filename = "./figures/fig_aug_flows.png", width=8, height=6, units="in", res=300, pointsize=20)
+png(filename = "./figures/fig_aug_flows.png", width=8, height=6, units="in", res=300, pointsize=30)
 fd %>% filter(month==8) %>% 
   ggplot(., aes(y=Value, x=year, group=year)) + 
   geom_boxplot() + 
+  stat_summary(fun.y="mean", geom="point", colour="dodgerblue") +
   ylab(expression("Daily discharge in August (m"^3*"s"^-1*")"))+
   xlab("Year") +
   scale_x_continuous(breaks=x_brks_2, labels=x_brks_2, limits=c(min(x_brks)-1, max(x_brks)+1), expand=c(0,0), minor_breaks=x_brks_2) +
   theme_bw() +
+  geom_hline(aes(yintercept=0.2*mad), linetype=2, stroke=1.2, colour="orange") +
   theme(axis.text.x = element_text(angle=90, vjust=0.5),
         panel.grid.minor.x=element_line(colour=adjustcolor("gray", alpha=0.5)))
 dev.off()
