@@ -1,3 +1,6 @@
+# This code makes the figures based on the posterior distributions from the model, including predictions. 
+# It also makes the changing hydrology figures
+# It also calculates various statistics for the text of the manuscript.
 
 library(tidyhydat)
 library(dplyr)
@@ -192,6 +195,10 @@ xint <- pred_flow[which.min(abs(pred_mean_mean))]
 # get unscaled x intercept
 xint_unscaled <- DMwR::unscale(vals=xint, norm.data=scale(d_unscaled$aug_mean_flow_rear))
 
+# get value of x where log(R/S) is log(1.43) (sustain 30% fishery harvest) ------------
+flow_30perc_harv <- pred_flow[which.min(abs(pred_mean_mean-log(1.43)))]
+flow_30perc_harv_unscaled <- DMwR::unscale(vals=flow_30perc_harv, norm.data=scale(d_unscaled$aug_mean_flow_rear))
+
 # Make vectors for unscaled mean aug flow axis
 pred_flow_unscaled <- DMwR::unscale(vals=pred_flow, norm.data=scale(d_unscaled$aug_mean_flow_rear))
 
@@ -262,106 +269,155 @@ mad <- mean(fd$Value[fd$year %in% yrs_complete], na.rm=TRUE)
 # get %MAD axis labels
 
 
-# Plot with cumulative----------
-png(filename = "./figures/fig_logRS_flow.png", width=8, height=11, units="in", res=300, pointsize=20)
+# Plot log(R/S) as a function of mean august flow with distribution of flows----------
+png(filename = "./figures/fig_logRS_flow.png", width=8, height=8, units="in", res=300, pointsize=20)
 
-layout(matrix(c(1,1,1,2,2,3,3,3,3,3,3), nrow=9, ncol=1, byrow = TRUE))
-par(mar=c(0.1,4,4,4), bty="L")
+# Obsolete: cumulative frequency curves
+# plot(x, p1, type="l", col=cols[1], ylab="Cumulative proportion", main="", xlim=c(0,max(d_unscaled$aug_mean_flow_rear)), lwd=2, las=1)
+# lines(x, p2, col=cols[2], lwd=2)
+# lines(x, p3, col=cols[3], lwd=2)
+# lines(x, p4, col=cols[4], lwd=2)
+# abline(h=0.5, lty=3)
 
-plot(x, p1, type="l", col=cols[1], ylab="Cumulative proportion", main="", xlim=c(0,max(d_unscaled$aug_mean_flow_rear)), lwd=2, las=1)
-lines(x, p2, col=cols[2], lwd=2)
-lines(x, p3, col=cols[3], lwd=2)
-lines(x, p4, col=cols[4], lwd=2)
+layout(matrix(c(1,2,2), nrow=3, ncol=1, byrow = TRUE)) # layout for multi-panel plot
 
-legend("bottomright", 
+par(mar=c(0.1,4,4,4), bty="L") # plot margins for upper panel
+
+# Add density plots
+plot(density(x=fd2$mean_aug_flow[fd2$period==1 ], na.rm=TRUE), col=cols[1], main="", ylim=c(0,0.17), xlim=c(0,max(d_unscaled$aug_mean_flow_rear)), lwd=2, las=1  )
+for(i in 2:length(unique(fd2$period))) {
+  lines(density(x=fd2$mean_aug_flow[fd2$period==i ], na.rm=TRUE), col=cols[i], lwd=2)
+}
+
+abline(v=xint_unscaled, col="gray", lty=2, lwd=1) # add line for replacement 
+
+# add %MAD axis
+axis(side=3, labels=seq(0,1, 0.1), at=seq(0,1, 0.1)* mad, las=1)
+mtext("% Mean annual discharge", side=3, line=2, cex=0.7)
+text(x=0, y=0.15, label="a")
+legend("topright", 
        inset=c(0, 0.05),
        legend=unique(fd1$period_name),
        col=cols,
        pch="l",
        bty="n" )
-abline(v=xint_unscaled, col="gray", lty=4, lwd=2)
-abline(h=0.5, lty=3)
 
-# add %MAD axis
-axis(side=3, labels=seq(0,1, 0.1), at=seq(0,1, 0.1)* mad, las=1)
-mtext("% Mean annual discharge", side=3, line=2, cex=0.7)
-
-
-#png(filename = "./figures/fig_logRS~flow.png", width=1200, height=1600, pointsize = 25)
-
-#par(mfrow=c(2,1), mar=c(0.1,4,0.1,4), bty="L")
-#plot(density(x=fd1$Value[fd1$month==8 & fd1$period==1 ], na.rm=TRUE), col=cols[1], main="", ylim=c(0,0.17), xlim=c(0,max(d_unscaled$aug_mean_flow_rear)), lwd=2 #, xaxt="n"
-#for(i in 2:length(unique(fd1$period))) {
-#lines(density(x=fd$Value[fd1$month==8 & fd1$period==i ], na.rm=TRUE), col=cols[i], lwd=2)
-#}
-par(mar=c(0.1,4,0.1,4), bty="L")
-
-plot(density(x=fd2$mean_aug_flow[fd2$period==1 ], na.rm=TRUE), col=cols[1], main="", ylim=c(0,0.17), xlim=c(0,max(d_unscaled$aug_mean_flow_rear)), lwd=2, las=1  )
-for(i in 2:length(unique(fd2$period))) {
-  lines(density(x=fd2$mean_aug_flow[fd2$period==i ], na.rm=TRUE), col=cols[i], lwd=2)
-}
-abline(v=xint_unscaled, col="gray", lty=4, lwd=2)
-
-#hist(fd2$mean_aug_flow[fd2$period==1 ], col=adjustcolor( cols[1], alpha=0.5), breaks=8,  xlim=c(0,max(fd2$mean_aug_flow)))
-#hist(fd2$mean_aug_flow[fd2$period==2 ], col=adjustcolor( cols[2], alpha=0.5), add=TRUE, breaks=8,  xlim=c(0,max(fd2$mean_aug_flow)))
-#hist(fd2$mean_aug_flow[fd2$period==3 ], col=adjustcolor( cols[3], alpha=0.5), add= TRUE, breaks=8,  xlim=c(0,max(fd2$mean_aug_flow)))
-
-#plot effect of mean aug flow on recruitment
+#plot effect of mean aug flow (rearing) on recruitment
 #plot(log(d$wild_recruits/d$total_spawners) ~ d$aug_mean_flow_rear, xlab="Mean Aug flow cms (scaled)", ylab="log(R/S)")
-par(mar=c(4,4,0.1,4))
+par(mar=c(4,4,0.1,4)) # set plot margins
+# plot effect mean august flows (rearing) on log(R/S)
 plot(pred_flow_unscaled, pred_mean_mean, type="l", lwd=1.4,  ylim=c(min(pred_75_HPDI),  max(pred_25_HPDI)), xlim=c(0,max(d_unscaled$aug_mean_flow_rear)), xlab=expression("Mean August flow (m"^3*"s"^-1*")"), ylab=expression("log"[e]*"(Recruits/Spawner)"), las=1)
-abline(h=0, lty=3)
-#plot(log(d$wild_recruits/d$total_spawners) ~ d$aug_mean_flow_rear, xlab="Mean Aug flow cms", ylab="log(R/S)")
-#   for(j in 4400:4500) {
-#    curve(log(post$alpha[j]) - post$beta[j] * mean(d$total_spawners) + post$b5[j] * x, 
-#           add=TRUE, lwd=2, col=adjustcolor("grey", 0.1))
-#  }
-#curve(log(mean(post$alpha)) - mean(post$beta) * mean(d$total_spawners) + mean(post$b5) * x, add=TRUE)
+
+# Add credible intervals for mean prediction
 rethinking::shade(pred_mean_HPDI, pred_flow_unscaled, col=adjustcolor(col="black", alpha=0.2) )
 lines(pred_flow_unscaled, pred_25_mean, col="red", lwd=1.4)
 rethinking::shade(pred_25_HPDI, pred_flow_unscaled, col=adjustcolor(col="pink", alpha=0.3))
 lines(pred_flow_unscaled, pred_75_mean, col="dodgerblue", lwd=1.4)
 rethinking::shade(pred_75_HPDI, pred_flow_unscaled, col=adjustcolor(col="dodgerblue", alpha=0.2))
-#axis(3, at=seq(min(d$aug_mean_flow_rear), max(d$aug_mean_flow_rear), length.out=10), labels=round(seq(min(d_unscaled$aug_mean_flow_rear), max(d_unscaled$aug_mean_flow_rear), length.out=10),3), line=3)
 
-legend("bottomright", 
+legend("bottomright", # add legend for spawner abundance
        inset=c(0, 0),
        legend=c("75% quantile spawners", "Mean spawners", "25% quantile spawners"),
        col=c("dodgerblue", "black", "pink"),
        pch="l",
        bty="n" )
 
-axis(side=4, labels=sec_yax, at=log(sec_yax), las=1)
-mtext("Recruits/Spawner", side=4, line=2, cex=0.7)
-abline(v=xint_unscaled, col="gray", lty=4, lwd=2)
-
+abline(h=0, lty=3, col="black") # add line for replacement
+axis(side=4, labels=sec_yax, at=log(sec_yax), las=1) # add axis for recruits/spawner
+mtext("Recruits/Spawner", side=4, line=2, cex=0.7) # label second axis
+abline(v=xint_unscaled, col="gray", lty=2) # add vertical line at replacement flows
+text(x=0, y=2, label="b")
+abline(v=14.35)
+abline(h=log(1.43))
 dev.off()
 
-# Plot for research summary for Nicola Basin Collaborative- Residuals of model formula without rearing flows, vs. rearing flows.  -----------
-# write a funtion to get predicted log(Recruits/Spawner) using mean estimates of covariates but not august rearing flows
-predict_logRS_no_rearing_flows <- function(smolt_age3_surv, aug_flow, ice_days, spawners) {
-  logRS <- log(mean(post$alpha)) - mean(post$beta) * mean(d$total_spawners) + mean(post$b1) * smolt_age3_surv + mean(post$b2) * aug_flow + mean(post$b4) * ice_days
+
+# Plot for research summary for Nicola Basin Collaborative- Residuals of model formula without each covariate  -----------
+# write a funtion to get predicted log(Recruits/Spawner) using mean estimates of covariates
+predict_logRS <- function(smolt_age3_surv, aug_flow, ice_days, aug_flow_rear, spawners) {
+  logRS <- log(mean(post$alpha)) - mean(post$beta) * mean(d$total_spawners) + mean(post$b1) * smolt_age3_surv + mean(post$b2) * aug_flow + mean(post$b4) * ice_days + mean(post$b5) * aug_flow_rear
 return(logRS) 
 }
 pred_logRS_no_rearing_flows <- 1:nrow(d) # create a numeric vector the same length as the number of cohorts
 # apply the function to the data, to get predicted logRS from all covariates except rearing flows
 for (i in 1:nrow(d)) {
-  pred_logRS_no_rearing_flows[i] <- predict_logRS_no_rearing_flows(smolt_age3_surv= d$smolt_age3_surv[i], aug_flow = d$aug_mean_flow[i], ice_days=d$ice_days[i], spawners=d$total_spawners[i])
+  pred_logRS_no_rearing_flows[i] <- predict_logRS(smolt_age3_surv= d$smolt_age3_surv[i], aug_flow = d$aug_mean_flow[i], ice_days=d$ice_days[i], aug_flow_rear=0, spawners=d$total_spawners[i])
 } 
 
-# Plot, logR/S
-png(filename = "./figures/fig_resid_RS_without_aug_flows.png", width=6, height=4, units="in", res=300, pointsize=10)
-par(mar=c(4,6,0.1,4))
-plot(x=d_unscaled$aug_mean_flow_rear, y=  log(d$recruits_per_spawner) - pred_logRS_no_rearing_flows, xlab=expression("Mean August flow during rearing (m"^3*"s"^-1*")"), ylab=expression(atop("Observed - predicted log"[e]*"(Recruits/Spawner)", "without Aug. rearing flow effect")), las=1, cex=1.3)
+# For spawning flows
+pred_logRS_no_spawning_flows <- 1:nrow(d)
+for (i in 1:nrow(d)) {
+  pred_logRS_no_spawning_flows[i] <- predict_logRS(smolt_age3_surv= d$smolt_age3_surv[i], aug_flow =0, ice_days=d$ice_days[i], aug_flow_rear=d$aug_mean_flow_rear[i], spawners=d$total_spawners[i])
+} 
+
+# for ice days
+pred_logRS_no_ice_days <- 1:nrow(d)
+for (i in 1:nrow(d)) {
+  pred_logRS_no_ice_days[i] <- predict_logRS(smolt_age3_surv= d$smolt_age3_surv[i], aug_flow =d$aug_mean_flow[i], ice_days=0, aug_flow_rear=d$aug_mean_flow_rear[i], spawners=d$total_spawners[i])
+} 
+
+# for smolt to age 3 survival
+pred_logRS_no_smolt_age3_surv <- 1:nrow(d)
+for (i in 1:nrow(d)) {
+  pred_logRS_no_smolt_age3_surv[i] <- predict_logRS(smolt_age3_surv= 0, aug_flow =d$aug_mean_flow[i], ice_days=d$ice_days[i], aug_flow_rear=d$aug_mean_flow_rear[i], spawners=d$total_spawners[i])
+} 
+
+# Plot for aug rearing flows, logR/S
+png(filename = "./figures/fig_resid_plots.png", width=8, height=8, units="in", res=300, pointsize=13)
+par(mar=c(6,6,0.1,0.1), bty="L")
+layout(matrix(c(1,2,3,4), ncol=2, nrow=2, byrow=TRUE))
+
+# same for smolt to age 3 survival
+plot(x=d_unscaled$smolt_age3_survival, y=  log(d$recruits_per_spawner) - pred_logRS_no_ice_days, xlab="Smolt to age 3 survival", ylab=expression(atop("Residual log"[e]*"(Recruits/Spawner)", "without smolt to age 3 survival")), las=1, cex=2)
+text(x=0.12, y=-1.5, label="a", col="gray")
+# same for spawning flows
+plot(x=d_unscaled$aug_mean_flow, y=  log(d$recruits_per_spawner) - pred_logRS_no_spawning_flows, xlab=expression("Mean August flow during spawning (m"^3*"s"^-1*")"), ylab=expression(atop("Residual log"[e]*"(Recruits/Spawner)", "without Aug. spawning flow effect")), las=1, cex=2)
+text(x=25, y=-1.5, label="b", col="gray")
+# same for ice days
+plot(x=d_unscaled$ice_days, y=  log(d$recruits_per_spawner) - pred_logRS_no_ice_days, xlab="Ice days", ylab=expression(atop("Residual log"[e]*"(Recruits/Spawner)", "without ice days effect")), las=1, cex=2)
+text(x=110, y=-1.5, label="c", col="gray")
+# august rearing flows
+plot(x=d_unscaled$aug_mean_flow_rear, y=  log(d$recruits_per_spawner) - pred_logRS_no_rearing_flows, xlab=expression("Mean August flow during rearing (m"^3*"s"^-1*")"), ylab=expression(atop("Residual log"[e]*"(Recruits/Spawner)", "without Aug. rearing flow effect")), las=1, cex=2)
 #abline(lm(d$recruits_per_spawner - exp(pred_logRS_no_rearing_flows) ~ d_unscaled$aug_mean_flow_rear))
+text(x=25, y=-1.75, label="d", col="gray")
 dev.off()
 
-# # Plot, with RS
-# png(filename = "./figures/fig_resid_logRS_without_aug_flows.png", width=6, height=4, units="in", res=300, pointsize=10)
-# par(mar=c(4,6,0.1,4))
-# plot(x=d_unscaled$aug_mean_flow_rear, y=  d$recruits_per_spawner - exp(pred_logRS_no_rearing_flows), xlab=expression("Mean August flow during rearing (m"^3*"s"^-1*")"), ylab="Observed - predicted Recruits/Spawner \n without Aug. rearing flow effect", las=1, cex=1.3)
-# abline(lm(d$recruits_per_spawner - exp(pred_logRS_no_rearing_flows) ~ d_unscaled$aug_mean_flow_rear))
-# dev.off()
+# Plot residuals of observed and mean ricker predictions without any covariates - for supplemental -------
+predicted_ricker <- d$total_spawners*mean(post$alpha)*exp(-mean(post$beta)*d$total_spawners) # get predicted mean spawners
+png(filename = "./figures/fig_resid_ricker_plots.png", width=8, height=8, units="in", res=300, pointsize=17)
+layout(matrix(c(1,2,3,4,5,6), ncol=2, nrow=3, byrow=TRUE))
+par(mar=c(4,4,0.5,0.1), bty="L")
+# Standard ricker with residuals
+plot(y=d$wild_recruits, x=d$total_spawners, ylab="Wild recruits", xlab="Total spawners")
+curve(x*mean(post$alpha)*exp(-mean(post$beta)*x), from=0, to=max(d$total_spawners), add=TRUE)
+segments(x0=d$total_spawners, x1=d$total_spawners, y0=predicted_ricker, y1=d$wild_recruits, col="dodgerblue")
+text(x=15000, y=15500, label="a", col="gray")
+# Smolt to age 3 survival
+plot(x=d_unscaled$smolt_age3_survival, y=d$wild_recruits - predicted_ricker , ylab="Residual recruits", xlab="Smolt to age 3 survival", cex=1.5)
+#text(x=d_unscaled$smolt_age3_survival, y=d$wild_recruits - predicted_ricker, label=d$brood_year )
+text(x=0.1, y=10000, label="b", col="gray")
+
+# Aug flow spawning
+plot(x=d_unscaled$aug_mean_flow, y=d$wild_recruits - predicted_ricker, ylab="Residual recruits", xlab=expression("Mean August flow during spawning (m"^3*"s"^-1*")"), cex=1.5)
+#text(x=d_unscaled$aug_mean_flow, y=d$wild_recruits - predicted_ricker, label=d$brood_year )
+text(x=25, y=10000, label="c", col="gray")
+
+# Fall flood max
+plot(x=d_unscaled$sep_dec_max_flow, y=d$wild_recruits - predicted_ricker , ylab="Residual recruits", xlab=expression("Max flood Sep-Dec during incubation (m"^3*"s"^-1*")"), cex=1.5)
+#text(x=d_unscaled$sep_dec_max_flow, y=d$wild_recruits - predicted_ricker, label=d$brood_year )
+text(x=175, y=10000, label="d", col="gray")
+
+# Ice days
+plot(x=d_unscaled$ice_days, y=d$wild_recruits - predicted_ricker, ylab="Residual recruits", xlab="Ice days", cex=1.5)
+#text(x=d_unscaled$ice_days, y=d$wild_recruits - predicted_ricker, label=d$brood_year )
+text(x=110, y=10000, label="e", col="gray")
+
+# Aug flow rearing
+plot(x=d_unscaled$aug_mean_flow_rear, y=d$wild_recruits - predicted_ricker, ylab="Residual recruits", xlab=expression("Mean August flow during rearing (m"^3*"s"^-1*")"), cex=1.5)
+#text(x=d_unscaled$aug_mean_flow_rear, y=d$wild_recruits - predicted_ricker, label=d$brood_year )
+text(x=25, y=10000, label="f", col="gray")
+
+dev.off()
 
 # Plot for IDEAS talk and research summary - Recruits / spawner and august flow - simple ---------
 flows_periods1_4 <- c(median(fd2$mean_aug_flow[fd2$period==1]), median(fd2$mean_aug_flow[fd2$period==4]))
@@ -554,40 +610,6 @@ segments(y0=ci80_ef[1,][c(2:4,1)], y1=ci80_ef[2,][c(2:4,1)], x0=1:4, x1=1:4, lwd
 points(x=as.factor(names(mn_ef)), y=mn_ef[c(2:4,1)], type="p", cex=3, pch=19, ylim=c(min(ci95_ef), max(ci95_ef)))
 dev.off()
 
-
-
-# Changes in carrying capacity, etc. over hydrometric flow periods------
-# See Hilborn and Walters 2013 , Table 7.2 for equations 
-# calculate productivity using flow from different periods - note that other environmental parameters can be dropped since mean values are 0 since they are scaled. 
-#prod <- post$alpha*exp(post$b5 * BOOTSTRAP FLOW VALS HERE)
-# calculate carrying capacity
-CC <- log(post$alpha)/post$beta
-# calculate SMSY using posterior samples
-SMSY <- log(post$alpha)/post$beta * (0.5 - 0.07*log(post$alpha))
-
-
-
-
-# Plot data with model, using last 100 posterior samples and each 26 lines of observed data -------
-# png(filename = "./figures/fig_R~S_with_model_runs_lognormal.png", width=1000, height=800, pointsize = 25)
-# par(mar=c(4,4,0,0) +0.1)
-# plot(d$wild_recruits ~ d$total_spawners, xlab="Spawners", ylab="Recruits")
-# for(i in 1:nrow(d)) {
-#   for(j in 4400:4500) {
-#     curve(post$alpha[j] * x * exp(-post$beta[j] * x + 
-#                                      post$b1[j] * d$ocean_surv_anomaly[i] +
-#                                      post$b2[j] * d$max_flow_fall_c[i] + 
-#                                      post$b3[j] * d$mean_flow_aug_c[i]), 
-#           add=TRUE, lwd=2, col=adjustcolor("grey", 0.1))
-#   }
-# }
-# points(d$wild_recruits ~ d$total_spawners)
-# curve(mean(post$alpha) * x * exp(-mean(post$beta) * x + 
-#                                     mean(post$b1) * mean(d$ocean_surv_anomaly) +
-#                                     mean(post$b2) * mean(d$max_flow_fall_c) + 
-#                                     mean(post$b3) * mean(d$mean_flow_aug_c)), col="dodger blue", lwd=3, add=TRUE)
-# dev.off()
-
 # Figure for changing hydrology --------
 # setup for circle graph of
 unique(fd$Parameter)
@@ -626,7 +648,7 @@ ggplot(fd_avg_prd, aes(y=avg_flow, x=yday, colour=factor(period))) +
 # # back to long format 
 # fd_change_l <- fd_change[,c(1,6:8)] %>% pivot_longer(cols=c(dif4_2, dif4_1, dif4_3), names_to = "prd_change", values_to = "perc_change")
 
-# Figure with august flows in boxplots by year - maybe for supplemental--------
+# Figure with august flows in boxplots by year - for supplemental--------
 x_brks <- seq(min(fd$year), max(fd$year), 1) # get year breaks
 x_brks_2 <- seq(round(min(x_brks), -1), round(max(x_brks),-1), 5 )
 png(filename = "./figures/fig_aug_flows.png", width=8, height=6, units="in", res=300, pointsize=30)
@@ -643,7 +665,10 @@ fd %>% filter(month==8) %>%
         panel.grid.minor.x=element_line(colour=adjustcolor("gray", alpha=0.5)))
 dev.off()
 
-round(1922,-1)
+# calculate mean and sd of each environmental covariate for paper
+vars_mean_sd<- d_unscaled %>% select(smolt_age3_survival, aug_mean_flow, sep_dec_max_flow, ice_days, aug_mean_flow_rear) %>% 
+  summarise_all(.funs=list(mean, sd))
+vars_mean_sd
 
 # setup for labels
 days_month <- as.vector(table(fd$month, fd$year)[,"1970"])
@@ -783,7 +808,22 @@ rethinking::dens(post$b5)
 abline(v=0)
 rethinking::dens(post$tau)
 
+# Check correlation between mean august flow and 20th quantile flow
+compare <- fd %>% filter(month==8) %>% group_by(year) %>% summarise(mean= mean(Value, na.rm=TRUE), Q20 = quantile(Value, probs=0.2, na.rm=TRUE))
+plot(compare$mean ~ compare$Q20, ylab="Mean August flow", xlab="20th Percentile August flow")
+abline(h=10.83, lty=3)
+abline(v=6, lty=2)
 
+#### OBSOLETE ####
+
+# Changes in carrying capacity, etc. over hydrometric flow periods------
+# See Hilborn and Walters 2013 , Table 7.2 for equations 
+# calculate productivity using flow from different periods - note that other environmental parameters can be dropped since mean values are 0 since they are scaled. 
+#prod <- post$alpha*exp(post$b5 * BOOTSTRAP FLOW VALS HERE)
+# calculate carrying capacity
+CC <- log(post$alpha)/post$beta
+# calculate SMSY using posterior samples
+SMSY <- log(post$alpha)/post$beta * (0.5 - 0.07*log(post$alpha))
 
 # # Plot triptych plot, min flood, mean flood, max flood
 # png(filename="./figures/fig_flood_triptych_lognormal.png", width=1200, height=800, pointsize = 25)
