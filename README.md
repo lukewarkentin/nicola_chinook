@@ -8,6 +8,6 @@ Age, sex, and Coded Wire Tag (CWT) specific spawner abundance data is from DFO. 
 
 Models were fit using Stan.
 
-See metadata.csv for details on data sources. 
+See metadata_proj.csv for details on data sources. 
 
 Contact: luke.warkentin@gmail.com
