@@ -417,6 +417,12 @@ curve(mod_sum_8[1,1]* x*exp(-mod_sum_8[3,1]*x), col="blue", add=TRUE)
 curve(mod_sum_8[1,1]* x*exp(-mod_sum_8[3,4]*x), col="blue", lty=2, add=TRUE)
 curve(mod_sum_8[1,1]* x*exp(-mod_sum_8[3,5]*x), col="blue", lty=2, add=TRUE)
 
+# add total spawners curve (one beta model)
+curve(mod_sum_8b[1,1]* x*exp(-mod_sum_8b[2,1]*x), col="gray", add=TRUE)
+curve(mod_sum_8b[1,1]* x*exp(-mod_sum_8b[2,4]*x), col="gray", lty=2, add=TRUE)
+curve(mod_sum_8b[1,1]* x*exp(-mod_sum_8b[2,5]*x), col="gray", lty=2, add=TRUE)
+
+
 dev.off()
 
 # Just one beta figure
