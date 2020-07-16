@@ -261,11 +261,13 @@ p4 <- cdf4(x)
 # For % Mean Annual Discharge (MAD)
 # Calculate mean annual discharge for Nicola, using only days from years with complete records 
 # make table of flow observations by year
-test <- table(fd$year)
+# test <- table(fd$year)
 # get years which are complete 
-yrs_complete <- as.numeric(dimnames(test)[[1]])[which(as.numeric(test)>=365)]
-# calculate MAD for vlaues from complete years only
-mad <- mean(fd$Value[fd$year %in% yrs_complete], na.rm=TRUE)
+# yrs_complete <- as.numeric(dimnames(test)[[1]])[which(as.numeric(test)>=365)]
+# calculate MAD for values from complete years only
+# mad <- mean(fd$Value[fd$year %in% yrs_complete], na.rm=TRUE)
+# Use Ptolemy unpublished estimate of naturalized, long-term Mean annual discharge 
+mad <- 29.8
 # get %MAD axis labels
 
 
@@ -327,8 +329,8 @@ axis(side=4, labels=sec_yax, at=log(sec_yax), las=1) # add axis for recruits/spa
 mtext("Recruits/Spawner", side=4, line=2, cex=0.7) # label second axis
 abline(v=xint_unscaled, col="gray", lty=2) # add vertical line at replacement flows
 text(x=0, y=2, label="b")
-abline(v=14.35)
-abline(h=log(1.43))
+# abline(v=14.35)
+# abline(h=log(1.43))
 dev.off()
 
 
@@ -660,9 +662,36 @@ fd %>% filter(month==8) %>%
   xlab("Year") +
   scale_x_continuous(breaks=x_brks_2, labels=x_brks_2, limits=c(min(x_brks)-1, max(x_brks)+1), expand=c(0,0), minor_breaks=x_brks_2) +
   theme_bw() +
-  geom_hline(aes(yintercept=0.2*mad), linetype=2, stroke=1.2, colour="orange") +
+  geom_hline(aes(yintercept=0.15*mad), linetype=2, stroke=1.2, colour="orange") +
   theme(axis.text.x = element_text(angle=90, vjust=0.5),
         panel.grid.minor.x=element_line(colour=adjustcolor("gray", alpha=0.5)))
+dev.off()
+
+# Figure with time series of each variable by year for supplemental-------
+png(filename = "./figures/fig_unscaled_variables_time_series.png", width=8, height=8, units="in", res=300, pointsize=15)
+layout(matrix(c(1,2,3,4,5,6), ncol=2, nrow=3, byrow=TRUE))
+par(mar=c(4,5,0.5,0.1), bty="L")
+
+# Smolt to age 3 survival
+plot(y=d_unscaled$smolt_age3_survival, x=d_unscaled$brood_year , ylab="Smolt-to-age 3 survival", xlab="Brood year", cex=1.5, type="b")
+text(y=0.12, x=2010, label="a", col="gray")
+
+# Aug flow spawning
+plot(y=d_unscaled$aug_mean_flow, x=d_unscaled$brood_year , ylab=expression("Mean Aug flow, spawning (m"^3*"s"^-1*")"), xlab="Brood year", cex=1.5, type="b")
+text(y=25, x=2010, label="b", col="gray")
+
+# Fall flood max
+plot(y=d_unscaled$sep_dec_max_flow, x=d_unscaled$brood_year , ylab=expression("Max flood Sep-Dec (m"^3*"s"^-1*")"), xlab="Brood year", cex=1.5, type="b")
+text(y=200, x=2010, label="c", col="gray")
+
+# Ice days
+plot(y=d_unscaled$ice_days, x=d_unscaled$brood_year ,ylab="Ice days", xlab="Brood year", cex=1.5, type="b")
+text(y=115, x=2010, label="d", col="gray")
+
+# Aug flow rearing
+plot(y=d_unscaled$aug_mean_flow_rear, x=d_unscaled$brood_year, ylab=expression("Mean Aug flow, rearing (m"^3*"s"^-1*")"), xlab="Brood year", cex=1.5, type="b")
+text(y=25, x=2010, label="e", col="gray")
+
 dev.off()
 
 # calculate mean and sd of each environmental covariate for paper

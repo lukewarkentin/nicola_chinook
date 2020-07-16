@@ -102,6 +102,9 @@ d[ ,8:ncol(d)] <- as.numeric(scale(d[ ,8:ncol(d)])) # centre and standardize all
 write.csv(d, "./data/model_data.csv")
 write.csv(d_unscaled, "./data/model_data_unscaled.csv")
 
+# save data for DRYAD repository
+write.csv(d_unscaled[c(1:5,7,15,22,23, 31,40)], "./data/DRYAD_upload_stock_recruit_model_data_unscaled.csv", row.names = FALSE)
+
 # check
 # round(colMeans(d, na.rm=TRUE),1)
 # apply(d, 2, sd, na.rm=TRUE)
