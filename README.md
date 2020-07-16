@@ -1,9 +1,13 @@
-# nicola_chinook
-Recruitment model for Nicola Chinook using drought, flood, and ocan survival. 
+Code to reproduce analyses in:
 
-Data sources:
-1. Fisheries and Oceans Canada Coded Wire Tag and Mark-recapture programs (contacts: Richard Bailey, Chuck Parken)
-2. Fisheries and Oceans Canada Spius Creek Hatchery (contacts: Doug Lofthouse)
-3. Environment Canada Hydrometric Station Data for Nicola River near Spences Bridge (package: tidyhydat, contact: Sam Albers)
+Warkentin, L., C.K. Parken, R. Bailey, & J.W. Moore (2020). Shifting flow regimes erode the productivity of imperilled Chinook salmon. Journal of Applied Ecology. 
 
-Fit using Stan. 
+This analysis uses a Ricker stock-recruit model with environmental covariates to determine the relative influence of freshwater conditions (i.e., August flows during adult migration, fall flooding, ice cover during incubation, August flows during rearing) and smolt-to-age 3 survival on the lifetime productivity of the Nicola Chinook population spawning in the mainstem Nicola River and the lower reaches of Coldwater River and Spius Creek. 
+
+Age, sex, and Coded Wire Tag (CWT) specific spawner abundance data is from DFO. Estimates of unmarked hatchery spawners come from Regional Mark Procesing Centre data combined with CWT return data from DFO. Estimates of fishing mortality and smolt-to-age 3 survival come from Charles Parken and Pacific Salmon Commission Chinook Technical Committee data. Hydrometric data comes from Water Survey of Canada HYDAT database using tidyhydat package.
+
+Models were fit using Stan.
+
+See metadata_proj.csv for details on data sources. 
+
+Contact: luke.warkentin@gmail.com
