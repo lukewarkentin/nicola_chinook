@@ -1,18 +1,23 @@
 # Run all candidate models and then do WAIC and loo comparisons
 
+setwd("C:/github/nicola_chinook")
 
 library(dplyr)
 library(ggplot2)
 library(rstan)
 library(rethinking)
-library(rstanarm)
+#library(rstanarm)
 library(loo)
 rstan_options(auto_write=TRUE)
+options(mc.cores = parallel::detectCores())
 
 rm(list=ls())
 
 d <- read.csv("./data/model_data.csv")
 
+# Optional: run without first year on record, which had very low smolt to age 3 survival
+# d <- d[!d$brood_year==1992, ]
+ 
 # Models to compare:
 
 
@@ -440,78 +445,54 @@ pars_track_11b <- c("alpha", "beta","b1",
 # Fit models--------
 # Two beta models
 fit_ricker_0 <- stan( file = "ricker_linear_logRS_0.stan", 
-                      data=dat, chains=3, iter=10000, init=inits_0, 
-                      cores=2, pars=pars_track_0)
+                      data=dat, chains=3, iter=10000, init=inits_0, pars=pars_track_0)
 fit_ricker_1 <- stan( file = "ricker_linear_logRS_1.stan", 
-                         data=dat, chains=3, iter=10000, init=inits_1, 
-                         cores=2, pars=pars_track_1)
+                         data=dat, chains=3, iter=10000, init=inits_1, pars=pars_track_1)
 fit_ricker_2 <- stan( file = "ricker_linear_logRS_2.stan", 
-                         data=dat, chains=3, iter=10000, init=inits_2, 
-                         cores=2, pars=pars_track_2)
+                         data=dat, chains=3, iter=10000, init=inits_2,  pars=pars_track_2)
 fit_ricker_3 <- stan( file = "ricker_linear_logRS_3.stan", 
-                         data=dat, chains=3, iter=10000, init=inits_3, 
-                         cores=2, pars=pars_track_3)
+                         data=dat, chains=3, iter=10000, init=inits_3, pars=pars_track_3)
 fit_ricker_4 <- stan( file = "ricker_linear_logRS_4.stan", 
-                         data=dat, chains=3, iter=10000, init=inits_4, 
-                         cores=2, pars=pars_track_4)
+                         data=dat, chains=3, iter=10000, init=inits_4, pars=pars_track_4)
 fit_ricker_5 <- stan( file = "ricker_linear_logRS_5.stan", 
-                         data=dat, chains=3, iter=10000, init=inits_5, 
-                         cores=2, pars=pars_track_5)
+                         data=dat, chains=3, iter=10000, init=inits_5,  pars=pars_track_5)
 fit_ricker_6 <- stan( file = "ricker_linear_logRS_6.stan", 
-                         data=dat, chains=3, iter=10000, init=inits_6, 
-                         cores=2, pars=pars_track_6)
+                         data=dat, chains=3, iter=10000, init=inits_6, pars=pars_track_6)
 fit_ricker_7 <- stan( file = "ricker_linear_logRS_7.stan", 
-                      data=dat, chains=3, iter=10000, init=inits_7, 
-                      cores=2, pars=pars_track_7)
+                      data=dat, chains=3, iter=10000, init=inits_7, pars=pars_track_7)
 fit_ricker_8 <- stan( file = "ricker_linear_logRS_8.stan", 
-                      data=dat, chains=3, iter=10000, init=inits_8, 
-                      cores=2, pars=pars_track_8)
+                      data=dat, chains=3, iter=10000, init=inits_8, pars=pars_track_8)
 fit_ricker_9 <- stan( file = "ricker_linear_logRS_9.stan", 
-                      data=dat, chains=3, iter=10000, init=inits_9, 
-                      cores=2, pars=pars_track_9)
+                      data=dat, chains=3, iter=10000, init=inits_9, pars=pars_track_9)
 fit_ricker_10 <- stan( file = "ricker_linear_logRS_10.stan", 
-                      data=dat, chains=3, iter=10000, init=inits_10, 
-                      cores=2, pars=pars_track_10)
+                      data=dat, chains=3, iter=10000, init=inits_10, pars=pars_track_10)
 fit_ricker_11 <- stan( file = "ricker_linear_logRS_11.stan", 
-                       data=dat, chains=3, iter=10000, init=inits_11, 
-                       cores=2, pars=pars_track_11)
+                       data=dat, chains=3, iter=10000, init=inits_11, pars=pars_track_11)
 # One beta models
 fit_ricker_0b <- stan( file = "ricker_linear_logRS_0b.stan", 
-                      data=dat, chains=3, iter=10000, init=inits_0b, 
-                      cores=2, pars=pars_track_0b)
+                      data=dat, chains=3, iter=10000, init=inits_0b, pars=pars_track_0b)
 fit_ricker_1b <- stan( file = "ricker_linear_logRS_1b.stan", 
-                      data=dat, chains=3, iter=10000, init=inits_1b, 
-                      cores=2, pars=pars_track_1b)
+                      data=dat, chains=3, iter=10000, init=inits_1b, pars=pars_track_1b)
 fit_ricker_2b <- stan( file = "ricker_linear_logRS_2b.stan", 
-                      data=dat, chains=3, iter=10000, init=inits_2b, 
-                      cores=2, pars=pars_track_2b)
+                      data=dat, chains=3, iter=10000, init=inits_2b, pars=pars_track_2b)
 fit_ricker_3b <- stan( file = "ricker_linear_logRS_3b.stan", 
-                      data=dat, chains=3, iter=10000, init=inits_3b, 
-                      cores=2, pars=pars_track_3b)
+                      data=dat, chains=3, iter=10000, init=inits_3b, pars=pars_track_3b)
 fit_ricker_4b <- stan( file = "ricker_linear_logRS_4b.stan", 
-                      data=dat, chains=3, iter=10000, init=inits_4b, 
-                      cores=2, pars=pars_track_4b)
+                      data=dat, chains=3, iter=10000, init=inits_4b, pars=pars_track_4b)
 fit_ricker_5b <- stan( file = "ricker_linear_logRS_5b.stan", 
-                      data=dat, chains=3, iter=10000, init=inits_5b, 
-                      cores=2, pars=pars_track_5b)
+                      data=dat, chains=3, iter=10000, init=inits_5b, pars=pars_track_5b)
 fit_ricker_6b <- stan( file = "ricker_linear_logRS_6b.stan", 
-                      data=dat, chains=3, iter=10000, init=inits_6b, 
-                      cores=2, pars=pars_track_6b)
+                      data=dat, chains=3, iter=10000, init=inits_6b, pars=pars_track_6b)
 fit_ricker_7b <- stan( file = "ricker_linear_logRS_7b.stan", 
-                      data=dat, chains=3, iter=10000, init=inits_7b, 
-                      cores=2, pars=pars_track_7b)
+                      data=dat, chains=3, iter=10000, init=inits_7b, pars=pars_track_7b)
 fit_ricker_8b <- stan( file = "ricker_linear_logRS_8b.stan", 
-                      data=dat, chains=3, iter=10000, init=inits_8b, 
-                      cores=2, pars=pars_track_8b)
+                      data=dat, chains=3, iter=10000, init=inits_8b, pars=pars_track_8b)
 fit_ricker_9b <- stan( file = "ricker_linear_logRS_9b.stan", 
-                      data=dat, chains=3, iter=10000, init=inits_9b, 
-                      cores=2, pars=pars_track_9b)
+                      data=dat, chains=3, iter=10000, init=inits_9b, pars=pars_track_9b)
 fit_ricker_10b <- stan( file = "ricker_linear_logRS_10b.stan", 
-                       data=dat, chains=3, iter=10000, init=inits_10b, 
-                       cores=2, pars=pars_track_10b)
+                       data=dat, chains=3, iter=10000, init=inits_10b, pars=pars_track_10b)
 fit_ricker_11b <- stan( file = "ricker_linear_logRS_11b.stan", 
-                       data=dat, chains=3, iter=10000, init=inits_11b, 
-                       cores=2, pars=pars_track_11b)
+                       data=dat, chains=3, iter=10000, init=inits_11b, pars=pars_track_11b)
 
 # Compare models ---------- 
 #fits <- ls(pattern="fit_ricker")
@@ -536,7 +517,7 @@ write.csv(round(waic,2), "WAIC_table.csv")
 # Compare parameter estimates - environmental variable effect estimates
 pars_plot <- c("b1","b2", "b3", "b4","b5")
 png("./figures/fig_parameter_estimates_model_compare.png", width=800, height=3000, pointsize = 18)
-plot(coeftab(fit_ricker_0, fit_ricker_1, fit_ricker_2, fit_ricker_3, fit_ricker_4, fit_ricker_5, 
+coeftab_plot(coeftab(fit_ricker_0, fit_ricker_1, fit_ricker_2, fit_ricker_3, fit_ricker_4, fit_ricker_5, 
              fit_ricker_6, fit_ricker_7, fit_ricker_8, fit_ricker_9, fit_ricker_10, fit_ricker_11, 
              fit_ricker_0b, fit_ricker_1b, fit_ricker_2b, fit_ricker_3b, fit_ricker_4b, fit_ricker_5b,
              fit_ricker_6b, fit_ricker_7b, fit_ricker_8b, fit_ricker_9b, fit_ricker_10b, fit_ricker_11b), pars=pars_plot)
@@ -545,7 +526,7 @@ dev.off()
 # beta terms - something not right here - coeftab doesn't match traceplot
 pars_plot_2 <- c("betaW", "betaH", "beta")
 png("./figures/fig_beta_estimates_model_compare.png", width=800, height=2000, pointsize = 18)
-plot(coeftab(fit_ricker_0, fit_ricker_1, fit_ricker_2, fit_ricker_3, fit_ricker_4, fit_ricker_5, 
+coeftab_plot(coeftab(fit_ricker_0, fit_ricker_1, fit_ricker_2, fit_ricker_3, fit_ricker_4, fit_ricker_5, 
              fit_ricker_6, fit_ricker_7, fit_ricker_8, fit_ricker_9, fit_ricker_10, fit_ricker_11, 
              fit_ricker_0b, fit_ricker_1b, fit_ricker_2b, fit_ricker_3b, fit_ricker_4b, fit_ricker_5b,
              fit_ricker_6b, fit_ricker_7b, fit_ricker_8b, fit_ricker_9b, fit_ricker_10b, fit_ricker_11b, se=TRUE, digits=10), pars=pars_plot_2)
@@ -610,6 +591,8 @@ cc_w <- log(mod_sum_8[1,1])/mod_sum_8[2,1]
 cc_h <- log(mod_sum_8[1,1])/mod_sum_8[3,1]
 cc_h / cc_w
 cc_w * 0.542
+
+
 
 #plot(x=1:18, y=1:18, pch=1:18)
 
