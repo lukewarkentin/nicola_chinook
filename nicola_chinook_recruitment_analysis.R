@@ -343,12 +343,12 @@ pars_track_8 <- c("alpha","betaW", "betaH","b1",
  # Fit stan model------------
 
 # fit Model 8b (one beta)
-fit_ricker_8b <- stan( file = "ricker_linear_logRS_8b.stan", 
+fit_ricker_8b <- stan( file = "stan/ricker_linear_logRS_8b.stan", 
                        data=dat, chains=3, iter=10000, init=inits_8b, 
                        cores=2, pars=pars_track_8b)
 
 # fit Model 8 (two betas, wild and hatchery)
-fit_ricker_8 <- stan( file = "ricker_linear_logRS_8.stan", 
+fit_ricker_8 <- stan( file = "stan/ricker_linear_logRS_8.stan", 
                       data=dat, chains=3, iter=10000, init=inits_8, 
                       cores=2, pars=pars_track_8)
 
