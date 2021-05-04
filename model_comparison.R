@@ -1,7 +1,5 @@
 # Run all candidate models and then do WAIC and loo comparisons
 
-setwd("C:/github/nicola_chinook")
-
 library(dplyr)
 library(ggplot2)
 library(rstan)
@@ -11,7 +9,6 @@ library(loo)
 rstan_options(auto_write=TRUE)
 options(mc.cores = parallel::detectCores())
 
-rm(list=ls())
 
 d <- read.csv("./data/model_data.csv")
 
@@ -515,17 +512,23 @@ write.csv(round(waic,2), "WAIC_table.csv")
 
 
 # Compare parameter estimates - environmental variable effect estimates
-pars_plot <- c("b1","b2", "b3", "b4","b5")
-png("./figures/fig_parameter_estimates_model_compare.png", width=800, height=3000, pointsize = 18)
+pars_plot <- c("b1", "b2", "b3", "b4", "b5")
+pars_labels <- c("Smolt to age 3 survival (b1)", 
+               "Aug. flow spawning (b2)",
+               "Fall flood (b3)",
+               "Ice days (b4)",
+               "Aug. flow rearing (b5)")
+png("./figures/fig_parameter_estimates_model_compare.png", width=300, height=1300, pointsize = 12)
 coeftab_plot(coeftab(fit_ricker_0, fit_ricker_1, fit_ricker_2, fit_ricker_3, fit_ricker_4, fit_ricker_5, 
              fit_ricker_6, fit_ricker_7, fit_ricker_8, fit_ricker_9, fit_ricker_10, fit_ricker_11, 
              fit_ricker_0b, fit_ricker_1b, fit_ricker_2b, fit_ricker_3b, fit_ricker_4b, fit_ricker_5b,
-             fit_ricker_6b, fit_ricker_7b, fit_ricker_8b, fit_ricker_9b, fit_ricker_10b, fit_ricker_11b), pars=pars_plot)
+             fit_ricker_6b, fit_ricker_7b, fit_ricker_8b, fit_ricker_9b, fit_ricker_10b, fit_ricker_11b), 
+             pars=pars_plot)
 dev.off()
 
 # beta terms - something not right here - coeftab doesn't match traceplot
 pars_plot_2 <- c("betaW", "betaH", "beta")
-png("./figures/fig_beta_estimates_model_compare.png", width=800, height=2000, pointsize = 18)
+png("./figures/fig_beta_estimates_model_compare.png", width=300, height=800, pointsize = 12)
 coeftab_plot(coeftab(fit_ricker_0, fit_ricker_1, fit_ricker_2, fit_ricker_3, fit_ricker_4, fit_ricker_5, 
              fit_ricker_6, fit_ricker_7, fit_ricker_8, fit_ricker_9, fit_ricker_10, fit_ricker_11, 
              fit_ricker_0b, fit_ricker_1b, fit_ricker_2b, fit_ricker_3b, fit_ricker_4b, fit_ricker_5b,

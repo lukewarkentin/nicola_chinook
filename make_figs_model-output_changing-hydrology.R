@@ -663,6 +663,8 @@ fd %>% filter(month==8) %>%
   scale_x_continuous(breaks=x_brks_2, labels=x_brks_2, limits=c(min(x_brks)-1, max(x_brks)+1), expand=c(0,0), minor_breaks=x_brks_2) +
   theme_bw() +
   geom_hline(aes(yintercept=0.15*mad), linetype=2, stroke=1.2, colour="orange") +
+  geom_hline(aes(yintercept=0))+
+  coord_cartesian(expand=FALSE)+
   theme(axis.text.x = element_text(angle=90, vjust=0.5),
         panel.grid.minor.x=element_line(colour=adjustcolor("gray", alpha=0.5)))
 dev.off()
