@@ -518,7 +518,9 @@ models <- list(fit_ricker_0, fit_ricker_1, fit_ricker_2, fit_ricker_3, fit_ricke
               fit_ricker_6, fit_ricker_7, fit_ricker_8, fit_ricker_9, fit_ricker_10, fit_ricker_11, 
               fit_ricker_0b, fit_ricker_1b, fit_ricker_2b, fit_ricker_3b, fit_ricker_4b, fit_ricker_5b,
               fit_ricker_6b, fit_ricker_7b, fit_ricker_8b, fit_ricker_9b, fit_ricker_10b, fit_ricker_11b)
-loovals <- lapply(models, loo)
+models
+# Do leave-one-out cross validation 
+loovals <- lapply(models, loo, cores = parallel::detectCores())
 loovals[[1]]
 plot(loovals[[8]]) # plot Pareto shape k value for each observation
 loo_mod_compare <- loo_compare(loovals)
@@ -541,6 +543,12 @@ abline(v=max(lootab$elpd_loo))
 points(x=max(lootab$elpd_loo) + lootab$elpd_diff, y=rev(1:nrow(lootab))+0.5, pch=2, col="gray")
 segments(x0=lootab$elpd_loo - lootab$se_diff, x1=lootab$elpd_loo + lootab$se_diff, y0=rev(1:nrow(lootab)) +0.5, col="gray")
 dev.off()
+
+# Do Bayesian model stacking to get model average
+# https://mc-stan.org/loo/articles/loo2-weights.html
+# https://mc-stan.org/loo/reference/loo_model_weights.html
+
+loo_model_weights(loovals, method="stacking")
 
 # Check R2 of the models
 # get posterior estimates for log(R/S)
