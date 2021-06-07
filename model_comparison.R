@@ -520,7 +520,7 @@ models <- list(fit_ricker_0, fit_ricker_1, fit_ricker_2, fit_ricker_3, fit_ricke
               fit_ricker_6b, fit_ricker_7b, fit_ricker_8b, fit_ricker_9b, fit_ricker_10b, fit_ricker_11b)
 models
 # Do leave-one-out cross validation 
-loovals <- lapply(models, loo, cores = parallel::detectCores())
+loovals <- lapply(models, loo, cores = 6)
 loovals[[1]]
 plot(loovals[[8]]) # plot Pareto shape k value for each observation
 loo_mod_compare <- loo_compare(loovals)
@@ -548,7 +548,16 @@ dev.off()
 # https://mc-stan.org/loo/articles/loo2-weights.html
 # https://mc-stan.org/loo/reference/loo_model_weights.html
 
-loo_model_weights(loovals, method="stacking")
+mw <- loo_model_weights(loovals, method="stacking")
+
+for(i in 1:length(models)) {
+  name[i] <- models[[i]]@model_name
+  name[i]
+}
+names(mw) <- name
+mw
+
+
 
 # Check R2 of the models
 # get posterior estimates for log(R/S)
