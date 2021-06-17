@@ -2,3 +2,10 @@
 .Rhistory
 .RData
 .Ruserdata
+
+
+# Large rds files from model comparison and LOO analysis
+*.rds
+
+# large posterior sample file
+data_out/model_stacking_posterior_samples.csv

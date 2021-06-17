@@ -11,9 +11,12 @@ library(stringr)
 library(lubridate)
 library(readxl)
 library(RColorBrewer)
+#devtools::install_github("cran/DMwR")
 library(DMwR)
 library(tidyr)
 library(EflowStats)
+#devtools::install_github("rmcelreath/rethinking")
+library(rethinking)
 rstan_options(auto_write=TRUE)
 
 rm(list=ls())
@@ -23,11 +26,23 @@ d <- read.csv("./data/model_data.csv")
 # read in unscaled data 
 d_unscaled <- read.csv("./data/model_data_unscaled.csv")
 # read in data frame of posterior samples of model parameters
-post <- read.csv("./data/posterior_samples.csv")
+#post <- read.csv("./data/posterior_samples.csv")
+# read in data frame of posterior samples of model parameters from model stacking
+post <- read.csv("data_out/model_stacking_posterior_samples.csv")
 
 
-# get posterior predictions for recruits
-ppd <- post[, grep("pp_R", colnames(post))]
+# get posterior predictions for recruits, from full stacked posterior of model parameters and data
+#ppd <- post[, grep("pp_R", colnames(post))]
+# function to get predicted recruits for each obseration
+get_pred_rec <- function(total_spawners, wild_spawners, hatchery_spawners, 
+                         smolt_age3_surv, aug_flow_spawn, fall_flood, ice_days, aug_flow_rear ) {
+  pred_rec <- total_spawners * post$alpha * exp(-post$beta * total_spawners - post$betaH* hatchery_spawners - post$betaW * wild_spawners + post$b1 * smolt_age3_surv + post$b2 * aug_flow_spawn + post$b3 * fall_flood + post$b4 * ice_days + post$b5* aug_flow_rear)
+}
+# get predictions based on full stacked parameter posteriors
+ppd <- pmap_dfc(list(d$total_spawners, d$wild_spawners, d$hatchery_spawners, 
+                     d$smolt_age3_survival, d$aug_mean_flow, d$sep_dec_max_flow, 
+                     d$ice_days, d$aug_mean_flow_rear), get_pred_rec)
+
 mn_ppd <- apply(ppd,2,mean) # get mean of predicted
 median_ppd <- apply(ppd,2,median) # get mean of predicted
 ci_ppd <- apply(ppd,2,rethinking::PI,prob=0.9) # get CI of predicted
@@ -99,7 +114,8 @@ abline(b=1, a=0, lwd=2, lty=2, col="orange")
 dev.off()
 
 # get R2 value
-cor(log(d$wild_recruits/d$total_spawners), mn_pp_log_RS)^2
+#cor(log(d$wild_recruits/d$total_spawners), mn_pp_log_RS)^2
+cor(d$wild_recruits, mn_ppd)
 
 # Plot predicted vs observed log(recruits/spawner)
 png(filename="./figures/fig_predicted~observed_log_RS.png", width=1200, height=800, pointsize = 30)
@@ -168,9 +184,13 @@ dev.off()
 pred_flow <- seq(min(d$aug_mean_flow_rear), max(d$aug_mean_flow_rear), length.out = 1000)
 
 # write function to calculate log(R/S) from each run of the model for a series of flows (one beta)
-pred_mean_sp <- function(aug_flow) log(post$alpha) - post$beta * mean(d$total_spawners) + post$b5 * aug_flow
-pred_25_sp <- function(aug_flow) log(post$alpha) - post$beta * quantile(d$total_spawners, 0.25) + post$b5 * aug_flow
-pred_75_sp <- function(aug_flow) log(post$alpha) - post$beta * quantile(d$total_spawners, 0.75) + post$b5 * aug_flow
+# pred_mean_sp <- function(aug_flow) log(post$alpha) - post$beta * mean(d$total_spawners) + post$b5 * aug_flow
+# pred_25_sp <- function(aug_flow) log(post$alpha) - post$beta * quantile(d$total_spawners, 0.25) + post$b5 * aug_flow
+# pred_75_sp <- function(aug_flow) log(post$alpha) - post$beta * quantile(d$total_spawners, 0.75) + post$b5 * aug_flow
+pred_mean_sp <- function(aug_flow) log(post$alpha) - post$beta_fix * mean(d$total_spawners) + post$b5 * aug_flow
+pred_25_sp <- function(aug_flow) log(post$alpha) - post$beta_fix * quantile(d$total_spawners, 0.25) + post$b5 * aug_flow
+pred_75_sp <- function(aug_flow) log(post$alpha) - post$beta_fix * quantile(d$total_spawners, 0.75) + post$b5 * aug_flow
+
 
 # write function to calculate a log(R/S) from each run of the model for a series of flows (two betas) -------
 # pred_mean_sp <- function(aug_flow) log(post$alpha) - post$betaW * mean(d$wild_spawners) - post$betaH * mean(d$hatchery_spawners) + post$b5 * aug_flow
@@ -328,7 +348,7 @@ abline(h=0, lty=3, col="black") # add line for replacement
 axis(side=4, labels=sec_yax, at=log(sec_yax), las=1) # add axis for recruits/spawner
 mtext("Recruits/Spawner", side=4, line=2, cex=0.7) # label second axis
 abline(v=xint_unscaled, col="gray", lty=2) # add vertical line at replacement flows
-text(x=0, y=2, label="b")
+text(x=0, y=1.5, label="b")
 # abline(v=14.35)
 # abline(h=log(1.43))
 dev.off()
@@ -385,13 +405,13 @@ text(x=25, y=-1.75, label="d", col="gray")
 dev.off()
 
 # Plot residuals of observed and mean ricker predictions without any covariates - for supplemental -------
-predicted_ricker <- d$total_spawners*mean(post$alpha)*exp(-mean(post$beta)*d$total_spawners) # get predicted mean spawners
+predicted_ricker <- d$total_spawners*mean(post$alpha)*exp(-mean(post$beta_fix)*d$total_spawners) # get predicted mean spawners
 png(filename = "./figures/fig_resid_ricker_plots.png", width=8, height=8, units="in", res=300, pointsize=17)
 layout(matrix(c(1,2,3,4,5,6), ncol=2, nrow=3, byrow=TRUE))
 par(mar=c(4,4,0.5,0.1), bty="L")
 # Standard ricker with residuals
 plot(y=d$wild_recruits, x=d$total_spawners, ylab="Wild recruits", xlab="Total spawners")
-curve(x*mean(post$alpha)*exp(-mean(post$beta)*x), from=0, to=max(d$total_spawners), add=TRUE)
+curve(x*mean(post$alpha)*exp(-mean(post$beta_fix)*x ), from=0, to=max(d$total_spawners), add=TRUE)
 segments(x0=d$total_spawners, x1=d$total_spawners, y0=predicted_ricker, y1=d$wild_recruits, col="dodgerblue")
 text(x=15000, y=15500, label="a", col="gray")
 # Smolt to age 3 survival
@@ -590,16 +610,27 @@ pred2 <- predict_recruits(smolt_age3_surv=0,
 (pred2 - pred1) / pred1
 
 
-# Plot effect sizes for paper-------
+# Plot effect sizes for paper: covariates -------
 library(bayesplot)
-fig_effect_sizes <- mcmc_areas(post, pars=c("b5", "b4","b2", "b1"), prob=0.8) + 
+fig_effect_sizes <- mcmc_areas(post, pars=c("b5", "b4","b3", "b2", "b1"), prob=0.8) + 
   xlab(expression("Effect on log"[e]*"(Recruits/Spawner)")) +
   ylab("Parameter") +
   geom_vline(aes(xintercept=0)) +
-  scale_y_discrete(labels=c("Aug. flow rearing (b5)", "Ice days (b4)", "Aug. flow spawning (b2)", "Smolt to age 3 survival (b1)")) +
+  scale_y_discrete(labels=c("Aug. flow rearing (b5)", "Ice days (b4)", "Max fall flood (b3)", "Aug. flow spawning (b2)", "Smolt to age 3 survival (b1)")) +
   theme_classic()
 fig_effect_sizes
 ggsave("./figures/fig_effect_sizes.png", fig_effect_sizes, width=6, height=6 )
+
+# plot effect sizes for paper: betas
+fig_effect_sizes_betas <- mcmc_areas(post, pars=c("beta", "beta_fix", "betaW", "betaW_fix", "betaH", "betaH_fix"), prob=0.8) + 
+  xlab(expression("Effect on log"[e]*"(Recruits/Spawner)")) +
+  ylab("Parameter") +
+  geom_vline(aes(xintercept=0)) +
+  theme_classic()
+fig_effect_sizes_betas
+ggsave("./figures/fig_effect_sizes_betas.png", fig_effect_sizes, width=6, height=4 )
+
+
 
 # For IDEAS
 png(filename = "./figures/fig_effect_sizes_IDEAS.png", width=12, height=5, units="in", res=300, pointsize=25)
@@ -637,11 +668,7 @@ fd %>% filter(month %in% c(8)) %>%
   summarise(summer_yield = sum(Value * 86400, na.rm=TRUE)) %>%
   group_by(period) %>%
   summarise(mean_summer_yield = mean(summer_yield, na.rm=TRUE))
-  
-ggplot(fd_avg_prd, aes(y=avg_flow, x=yday, colour=factor(period))) + 
-  geom_line(size=1.2) +
-  scale_color_manual(values = cols) +
-  theme_classic()
+
 # # long to wide format to get percent change between periods
 # fd_change <- fd_avg_prd %>% pivot_wider(names_from=period, names_prefix= "prd", values_from= avg_flow )
 # fd_change$dif4_2 <- (fd_change$prd4 - fd_change$prd2) / fd_change$prd2 * 100
@@ -782,47 +809,6 @@ ggsave("./figures/fig_hyd_change_hist.png", fig_hyd_change_hist, width=10, heigh
 # check min, max
 range(fd_change$dif4_2)
 range(fd_change$dif4_1, na.rm=TRUE)
-
-# circle
-fig_hyd_change_periods <- fd_change_l[fd_change_l$prd_change %in% c("dif4_2"), ] %>% 
-  ggplot(aes(y=perc_change, x=yday,  fill=perc_change)) + 
-  geom_col() +
-  geom_path() +
-  #geom_area(aes( y=perc_change), fill="gray") +
-  #geom_point(shape=21, size=2) +
-  #geom_point(shape=16,size=1) +
-  #scale_shape_manual(values=c(17,16)) +
-  #scale_fill_gradient2(high="blue", mid="white", low="red", midpoint=0,  breaks=seq(-50,150,50), labels=as.character(seq(-50,150,50)), limits=c(-50,150), name="Percent change in\naverage daily flow,\n1957-1974 to 1992-2014") +
-  scale_fill_gradientn(colours=c("red","orange", "white", "green", "blue"), values=c(0,0.12, scales::rescale(x=0, to=c(0,1), from=range(fd_change_l$perc_change[fd_change_l$prd_change =="dif4_2"])), 0.5, 1), breaks=seq(-50,150,50), labels=as.character(seq(-50,150,50)), limits=c(-50,150), name="Percent change in\naverage daily flow,\n1957-1974 to 1992-2014") +
-  coord_polar() + 
-  scale_y_continuous(limits=c(-200,max(fd_change_l$perc_change)), expand=c(0,0), breaks=NULL) +
-  #scale_y_continuous(limits=c(-300,100), expand=c(0,0)) +
-  scale_x_continuous(breaks=month_breaks, labels=month_labels, minor_breaks=NULL) +
-  geom_hline(aes(yintercept=0)) +
-  xlab("") +
-  ylab("") +
-  theme_classic() +
-  theme(axis.line = element_blank())
-fig_hyd_change_periods 
-ggsave("./figures/fig_hyd_change_periods.png", fig_hyd_change_periods, width=10, height=6 )
-
-# Change in hydrology period 1 to 4
-fig_hyd_change_periods1_4 <- fd_change_l[fd_change_l$prd_change %in% c("dif4_1"), ] %>% 
-  ggplot(aes(y=perc_change, x=yday,  fill=perc_change)) + 
-  geom_col() +
-  geom_path() +
-  scale_fill_gradientn(colours=c("black","red", "white", "green", "blue"), values=c(0,0.12, scales::rescale(x=0, to=c(0,1), from=range(fd_change_l$perc_change[fd_change_l$prd_change =="dif4_1"], na.rm=TRUE)), 0.5, 1), breaks=seq(-100,250,50), labels=as.character(seq(-100,250,50)), limits=c(-100,250), name="Percent change in\naverage daily flow,\n1911-1920 to 1992-2014") +
-  coord_polar() + 
-  scale_y_continuous(limits=c(-200,max(fd_change_l$perc_change)), expand=c(0,0), breaks=NULL) +
-  #scale_y_continuous(limits=c(-300,100), expand=c(0,0)) +
-  scale_x_continuous(breaks=month_breaks, labels=month_labels, minor_breaks=NULL) +
-  geom_hline(aes(yintercept=0)) +
-  xlab("") +
-  ylab("") +
-  theme_classic() +
-  theme(axis.line = element_blank())
-fig_hyd_change_periods1_4
-ggsave("./figures/fig_hyd_change_periods1_4.png", fig_hyd_change_periods1_4, width=10, height=6 )
 
 # Look at posteriors
 rethinking::dens(post$alpha)
