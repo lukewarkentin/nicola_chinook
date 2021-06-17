@@ -32,7 +32,7 @@ post <- read.csv("data_out/model_stacking_posterior_samples.csv")
 
 
 # get posterior predictions for recruits, from full stacked posterior of model parameters and data
-#ppd <- post[, grep("pp_R", colnames(post))]
+#ppd <- post[, grep("pp_R", colnames(post))] # I don't think this is the right thing now, since I am using model stacking
 # function to get predicted recruits for each obseration
 get_pred_rec <- function(total_spawners, wild_spawners, hatchery_spawners, 
                          smolt_age3_surv, aug_flow_spawn, fall_flood, ice_days, aug_flow_rear ) {
@@ -50,10 +50,19 @@ ci_ppd50 <- apply(ppd,2,rethinking::PI,prob=0.5) # get CI of predicted
 ci_ppd10 <- apply(ppd,2,rethinking::PI,prob=0.1) # get CI of predicted
 
 # get posterior predictions for log(recruits/spawners)
-pp_log_RS <- post[, grep("pp_log_RS", colnames(post))]
+# pp_log_RS <- post[, grep("pp_log_RS", colnames(post))] # I don't think this works for stacked posteriors
+# get log(predicted_R/S)
+
+pp_log_RS <- as.data.frame(sapply(1:ncol(ppd), function(i)
+  log(ppd[,i] / d$total_spawners[i])
+  ))
+
+
+
+head(pp_log_RS)
 mn_pp_log_RS <- apply(pp_log_RS,2,mean) # get mean of predicted
 median_pp_log_RS <- apply(pp_log_RS,2,median) # get mean of predicted
-ci_pp_log_RS <- apply(pp_log_RS,2,rethinking::PI,prob=0.9) # get CI of predicted
+ci_pp_log_RS <- apply(pp_log_RS,2,rethinking::PI,prob=0.90) # get CI of predicted
 ci_pp_log_RS_50 <- apply(pp_log_RS,2,rethinking::PI,prob=0.5) # get CI of predicted
 ci_pp_log_RS_10 <- apply(pp_log_RS,2,rethinking::PI,prob=0.1) # get CI of predicted
 
@@ -93,23 +102,15 @@ lines(y=mn_pp_log_RS, x=d$brood_year, col="dodger blue")
 abline(h=0, lty=2)
 polygon(x=c(d$brood_year, rev(d$brood_year)), y=c(ci_pp_log_RS[1,], rev(ci_pp_log_RS[2,])), col = adjustcolor('grey', alpha=0.5), border = NA)
 polygon(x=c(d$brood_year, rev(d$brood_year)), y=c(ci_pp_log_RS_50[1,], rev(ci_pp_log_RS_50[2,])), col = adjustcolor('grey', alpha=0.5), border = NA)
-polygon(x=c(d$brood_year, rev(d$brood_year)), y=c(ci_pp_log_RS_10[1,], rev(ci_pp_log_RS_10[2,])), col = adjustcolor('grey', alpha=0.5), border = NA)
+#polygon(x=c(d$brood_year, rev(d$brood_year)), y=c(ci_pp_log_RS_10[1,], rev(ci_pp_log_RS_10[2,])), col = adjustcolor('grey', alpha=0.5), border = NA)
 dev.off()
+# FLAG these are quite narrow CIs. Check. 
 
 # plot predicted vs observed recruits
 png(filename="./figures/fig_predicted~observed_R.png", width=1200, height=800, pointsize = 30)
 par(mar=c(4,4,0,0) +0.1)
 plot(mn_ppd ~ d$wild_recruits, ylim=c(min(ci_ppd), max(ci_ppd)), xlab="Observed recruits", ylab="Predicted recruits")
 segments(x0= d$wild_recruits, y0=ci_ppd[1,], y1=ci_ppd[2,], lwd=1)
-abline(b=1, a=0, lwd=2, lty=2, col="orange")
-dev.off()
-
-
-# plot predicted vs observed log recruits
-png(filename="./figures/fig_predicted~observed_log_R.png", width=1200, height=800, pointsize = 30)
-par(mar=c(4,4,0,0) +0.1)
-plot(log(mn_ppd) ~ log(d$wild_recruits), ylim=c(min(log(ci_ppd)), max(log(ci_ppd))), xlab="log(Observed recruits)", ylab="log(Predicted recruits)")
-segments(x0= log(d$wild_recruits), y0=log(ci_ppd[1,]), y1=log(ci_ppd[2,]), lwd=1)
 abline(b=1, a=0, lwd=2, lty=2, col="orange")
 dev.off()
 
