@@ -520,7 +520,7 @@ row.names(lootab) <- ifelse(as.numeric(row.names(lootab)) <= 11, row.names(loota
 row.names(lootab) <- paste0("Model ", row.names(lootab))
 
 # save loo table
-write.csv(round(lootab,2), "./loo_comparison.csv")
+write.csv(round(lootab,2), "data_out/loo_comparison.csv")
 
 # graph
 png("./figures/fig_LOO_model_compare.png", pointsize=20, width=500, height=1000)
@@ -697,7 +697,7 @@ dev.off()
 # Get coefficient estimates for different models
 mod_sum_8 <- round(summary(fit_ricker_8, probs=c(0.1,0.9))$summary,6)
 mod_sum_8
-write.csv(mod_sum_8, "estimates_model8.csv")
+#write.csv(mod_sum_8, "estimates_model8.csv")
 # Get carring capacity for hatchery vs. wild fish
 cc_w <- log(mod_sum_8[1,1])/mod_sum_8[2,1]
 cc_h <- log(mod_sum_8[1,1])/mod_sum_8[3,1]
@@ -722,13 +722,13 @@ waic <- waic_tab
 row.names(waic) <- sub("fit_ricker_", "Model ", row.names(waic))
 #waic$`Cumulative weight` <- cumsum(waic$weight) # add cumulative weight column
 # save WAIC table
-write.csv(round(waic,2), "WAIC_table.csv")
+#write.csv(round(waic,2), "data_out/WAIC_table.csv")
 
 # Combine WAIC, LOO and R2 tables to print----------
 comp <- merge(waic, lootab, by="row.names")
 comp1 <- merge(comp, r_df, by.x="Row.names", by.y="model")
 comp1[,-1] <- signif(comp1[,-1], 3) # round all numeric values to 3 significant figures
-write.csv(comp1[order(comp1$WAIC),], "data_out/model_comparison_master.csv")
+#write.csv(comp1[order(comp1$WAIC),], "data_out/model_comparison_master.csv")
 
 # OBSOLETE: AUTOCORRELATION
 # inits_AR= rep(

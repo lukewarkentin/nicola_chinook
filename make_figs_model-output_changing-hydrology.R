@@ -534,7 +534,7 @@ fig_effect_sizes_betas <- mcmc_areas(post, pars=c("beta_fix", "betaW_fix", "beta
   geom_vline(aes(xintercept=0)) +
   theme_classic()
 fig_effect_sizes_betas
-ggsave("./figures/fig_effect_sizes_betas.png", fig_effect_sizes, width=6, height=4 )
+#ggsave("./figures/fig_effect_sizes_betas.png", fig_effect_sizes, width=6, height=4 )
 
 # Figure for changing hydrology --------
 # setup 

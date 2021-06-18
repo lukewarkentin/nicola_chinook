@@ -105,38 +105,6 @@ write.csv(d_unscaled, "./data/model_data_unscaled.csv")
 # save data for DRYAD repository
 write.csv(d_unscaled[c(1:5,7,15,22,23, 31,40)], "./data/DRYAD_upload_stock_recruit_model_data_unscaled.csv", row.names = FALSE)
 
-# check
-# round(colMeans(d, na.rm=TRUE),1)
-# apply(d, 2, sd, na.rm=TRUE)
-
-# Get into model matrix form
-# pred_vars <- c("aug_mean_flow", "sep_dec_max_flow", "ice_days", "aug_mean_flow_rear", "smolt_age3_survival")
-# mod_matrix <- model.matrix(object = wild_recruits ~ aug_mean_flow + sep_dec_max_flow + ice_days + aug_mean_flow_rear + smolt_age3_survival, data=d)
-# colnames(mod_matrix)
-# mod_matrix <- mod_matrix[,-grep("(Intercept)", colnames(mod_matrix))] # remove intercept column
-# 
-
-# # Normalize predictor variables for traffic light plots
-# # Normalize function
-# normalize <- function(x) {
-#   return ((x - min(x)) / (max(x) - min(x)))
-# }
-# # apply to each column
-# d_norm<- d_unscaled
-# d_norm[,9:ncol(d_norm)] <- apply(d_norm[,9:ncol(d_norm)], 2, normalize)
-# # reverse max flow to get colour right
-# d_norm$sep_dec_max_flow_rev <- 1 - d_norm$sep_dec_max_flow 
-# d_norm$ice_days_rev <- 1 - d_norm$ice_days
-# 
-# # Normalize full range of hydrometric data
-# fd_norm <- fd
-# # remove 2014 (all NAs for rearing year)
-# fd_norm <- fd_norm[ !fd_norm$year==2014,]
-# fd_norm[ , 2:ncol(fd_norm)] <- apply(fd_norm[,2:ncol(fd_norm)], 2, normalize)
-# # reverse max flow to get colour right
-# fd_norm$sep_dec_max_flow_rev <- 1 - fd_norm$sep_dec_max_flow 
-# fd_norm$ice_days_rev <- 1 - fd_norm$ice_days
-
 # # Visual checks
 
 # Check Correlation between covariates
