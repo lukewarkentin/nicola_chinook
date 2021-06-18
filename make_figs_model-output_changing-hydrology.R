@@ -30,41 +30,80 @@ d_unscaled <- read.csv("./data/model_data_unscaled.csv")
 # read in data frame of posterior samples of model parameters from model stacking
 post <- read.csv("data_out/model_stacking_posterior_samples.csv")
 
+plot(post$alpha~post$beta_fix)
 
-# get posterior predictions for recruits, from full stacked posterior of model parameters and data
-#ppd <- post[, grep("pp_R", colnames(post))] # I don't think this is the right thing now, since I am using model stacking
-# function to get predicted recruits for each obseration
-get_pred_rec <- function(total_spawners, wild_spawners, hatchery_spawners, 
-                         smolt_age3_surv, aug_flow_spawn, fall_flood, ice_days, aug_flow_rear ) {
-  pred_rec <- total_spawners * post$alpha * exp(-post$beta * total_spawners - post$betaH* hatchery_spawners - post$betaW * wild_spawners + post$b1 * smolt_age3_surv + post$b2 * aug_flow_spawn + post$b3 * fall_flood + post$b4 * ice_days + post$b5* aug_flow_rear)
-}
-# get predictions based on full stacked parameter posteriors
-ppd <- pmap_dfc(list(d$total_spawners, d$wild_spawners, d$hatchery_spawners, 
-                     d$smolt_age3_survival, d$aug_mean_flow, d$sep_dec_max_flow, 
-                     d$ice_days, d$aug_mean_flow_rear), get_pred_rec)
-
-mn_ppd <- apply(ppd,2,mean) # get mean of predicted
-median_ppd <- apply(ppd,2,median) # get mean of predicted
-ci_ppd <- apply(ppd,2,rethinking::PI,prob=0.9) # get CI of predicted
-ci_ppd50 <- apply(ppd,2,rethinking::PI,prob=0.5) # get CI of predicted
-ci_ppd10 <- apply(ppd,2,rethinking::PI,prob=0.1) # get CI of predicted
+head(post)
 
 # get posterior predictions for log(recruits/spawners)
-# pp_log_RS <- post[, grep("pp_log_RS", colnames(post))] # I don't think this works for stacked posteriors
-# get log(predicted_R/S)
-
-pp_log_RS <- as.data.frame(sapply(1:ncol(ppd), function(i)
-  log(ppd[,i] / d$total_spawners[i])
-  ))
+# compare stacked log(pred_r/s) and recalculated log(pred_r/s) based on stacked posteriors
+pp_log_RS_stacked <- post[, grep("pp_log_RS", colnames(post))] # I'm not sure if this works for stacked posteriors
+mn_pp_log_RS_stacked <- apply(pp_log_RS_stacked,2,mean) # get mean of predicted
+ci_pp_log_RS_stacked <- apply(pp_log_RS_stacked,2,rethinking::PI, prob=0.9) # get CI of predicted
 
 
+# function to get predicted log(recruits/spawner) for each obseration
+get_pred_log_RS <- function(total_spawners, wild_spawners, hatchery_spawners,
+                         smolt_age3_surv, aug_flow_spawn, fall_flood, ice_days, aug_flow_rear ) {
+  pred_rec <- log(post$alpha) -post$beta * total_spawners - post$betaH* hatchery_spawners - post$betaW * wild_spawners + post$b1 * smolt_age3_surv + post$b2 * aug_flow_spawn + post$b3 * fall_flood + post$b4 * ice_days + post$b5* aug_flow_rear
+}
+# get repredictions based on full stacked parameter posteriors
+pp_log_RS_repred <- pmap_dfc(list(d$total_spawners, d$wild_spawners, d$hatchery_spawners, 
+                     d$smolt_age3_survival, d$aug_mean_flow, d$sep_dec_max_flow, 
+                     d$ice_days, d$aug_mean_flow_rear), get_pred_log_RS)
 
-head(pp_log_RS)
-mn_pp_log_RS <- apply(pp_log_RS,2,mean) # get mean of predicted
-median_pp_log_RS <- apply(pp_log_RS,2,median) # get mean of predicted
-ci_pp_log_RS <- apply(pp_log_RS,2,rethinking::PI,prob=0.90) # get CI of predicted
-ci_pp_log_RS_50 <- apply(pp_log_RS,2,rethinking::PI,prob=0.5) # get CI of predicted
-ci_pp_log_RS_10 <- apply(pp_log_RS,2,rethinking::PI,prob=0.1) # get CI of predicted
+# Get summary of log_RS repredicted
+mn_pp_log_RS_repred <- apply(pp_log_RS_repred,2,mean) # get mean of predicted
+#median_pp_log_RS <- apply(pp_log_RS,2,median) # get mean of predicted
+ci_pp_log_RS_repred <- apply(pp_log_RS_repred,2,rethinking::PI,prob=0.9) # get CI of predicted
+#ci_pp_log_RS_50 <- apply(pp_log_RS,2,rethinking::PI,prob=0.5) # get CI of predicted
+#ci_pp_log_RS_10 <- apply(pp_log_RS,2,rethinking::PI,prob=0.1) # get CI of predicted
+
+# Compare stacked and repredicted log(R/S)
+par(mar=c(4,4,0,0) +0.1)
+plot(x=mn_pp_log_RS_repred, y=mn_pp_log_RS_stacked, xlim=c(min(ci_pp_log_RS_repred), max(ci_pp_log_RS_repred)), ylim=c(min(ci_pp_log_RS_stacked), max(ci_pp_log_RS_stacked)), xlab="repredicted log(R/S)", ylab="stacked log(R/S)")
+segments(x0= mn_pp_log_RS_repred, y0=ci_pp_log_RS_stacked[1,], y1=ci_pp_log_RS_stacked[2,], lwd=1)
+segments(y0= mn_pp_log_RS_stacked, x0=ci_pp_log_RS_repred[1,], x1=ci_pp_log_RS_repred[2,], lwd=1)
+abline(b=1, a=0, lwd=2, lty=2, col="orange")
+# Can confirm, yes, they are essentially the same.
+
+# get posterior predictions for predicted recruits, from full stacked posterior of model parameters and data
+# get predcited recruits from stacked log(pred_r/s)
+ppd <- as.data.frame(sapply(1:ncol(ppd), function(i)
+  exp(pp_log_RS_stacked[,i] ) * d$total_spawners[i]
+))
+
+mn_ppd <- apply(ppd,2,mean) # get mean of predicted
+#median_ppd <- apply(ppd,2,median) # get mean of predicted
+ci_ppd <- apply(ppd,2,rethinking::PI,prob=0.9) # get CI of predicted
+#ci_ppd50 <- apply(ppd,2,rethinking::PI,prob=0.5) # get CI of predicted
+#ci_ppd10 <- apply(ppd,2,rethinking::PI,prob=0.1) # get CI of predicted
+
+# Plot log(recruits/spawners) time series with predicted intervals
+png(filename="./figures/fig_predicted_logRS_time_series.png", width=1200, height=800, pointsize = 30)
+par(mar=c(4,4,0,0) +0.1)
+plot(y=log(d$wild_recruits/d$total_spawners), x=d$brood_year, ylim=c(min(ci_pp_log_RS_stacked), max(ci_pp_log_RS_stacked)), xlab="Brood year", ylab=expression('log'[e]*'(Recruits/Spawner)'), las=1)
+lines(y=mn_pp_log_RS_stacked, x=d$brood_year, col="dodger blue")
+#lines(y=median_pp_log_RS, x=d$brood_year, col="firebrick")
+abline(h=0, lty=2)
+polygon(x=c(d$brood_year, rev(d$brood_year)), y=c(ci_pp_log_RS_stacked[1,], rev(ci_pp_log_RS_stacked[2,])), col = adjustcolor('grey', alpha=0.5), border = NA)
+#polygon(x=c(d$brood_year, rev(d$brood_year)), y=c(ci_pp_log_RS_repred[1,], rev(ci_pp_log_RS_repred[2,])), col = adjustcolor('pink', alpha=0.5), border = NA)
+#polygon(x=c(d$brood_year, rev(d$brood_year)), y=c(ci_pp_log_RS_50[1,], rev(ci_pp_log_RS_50[2,])), col = adjustcolor('grey', alpha=0.5), border = NA)
+#polygon(x=c(d$brood_year, rev(d$brood_year)), y=c(ci_pp_log_RS_10[1,], rev(ci_pp_log_RS_10[2,])), col = adjustcolor('grey', alpha=0.5), border = NA)
+dev.off()
+
+# FLAG: The credible intervals are narrower for the repredicted values. May have to do 
+# with including total beta*spawners, wild beta * wild spawners, and hatchery beta *
+# hatchery spawners in the predicting model, which are never all three in any 
+# candidate model. 
+
+layout(mat=matrix(1:22, ncol=2, byrow=TRUE))
+par(mar=c(0,0,0,0) +0.1)
+for(i in 1:ncol(pp_log_RS_stacked)) {
+  plot(density(pp_log_RS_stacked[,i]))
+  lines(density(unlist(pp_log_RS_repred[,i])), col="pink")
+  abline(v=log(d$wild_recruits[i]/d$total_spawners[i]))
+}
+layout(mat=matrix(1))
 
 # Plot data with predicted intervals--------
 plot(d$wild_recruits ~ d$total_spawners , ylim=c(min(ci_ppd), max(c(ci_ppd, d$wild_recruits))))
@@ -72,16 +111,16 @@ points(x=d$total_spawners, y=mn_ppd, add=TRUE, col="dodger blue")
 segments(x0= d$total_spawners, y0=ci_ppd[1,], y1=ci_ppd[2,], lwd=1, col="dodger blue")
 
 # Plot recruits time series with predicted intervals
-png(filename="./figures/fig_predicted_R_time_series.png", width=1200, height=800, pointsize = 30)
-par(mar=c(4,4,0,0) +0.1)
-plot(y=d$wild_recruits, x=d$brood_year, ylim=c(min(ci_ppd), max(ci_ppd)), xlab="Brood year", ylab="Recruits")
-lines(y=mn_ppd, x=d$brood_year, col="dodger blue")
-lines(y=median_ppd, x=d$brood_year, col="firebrick")
-abline(h=0, lty=2)
-polygon(x=c(d$brood_year, rev(d$brood_year)), y=c(ci_ppd[1,], rev(ci_ppd[2,])), col = adjustcolor('grey', alpha=0.5), border = NA)
-polygon(x=c(d$brood_year, rev(d$brood_year)), y=c(ci_ppd50[1,], rev(ci_ppd50[2,])), col = adjustcolor('grey', alpha=0.5), border = NA)
-polygon(x=c(d$brood_year, rev(d$brood_year)), y=c(ci_ppd10[1,], rev(ci_ppd10[2,])), col = adjustcolor('grey', alpha=0.5), border = NA)
-dev.off()
+# png(filename="./figures/fig_predicted_R_time_series.png", width=1200, height=800, pointsize = 30)
+# par(mar=c(4,4,0,0) +0.1)
+# plot(y=d$wild_recruits, x=d$brood_year, ylim=c(min(ci_ppd), max(ci_ppd)), xlab="Brood year", ylab="Recruits")
+# lines(y=mn_ppd, x=d$brood_year, col="dodger blue")
+# lines(y=median_ppd, x=d$brood_year, col="firebrick")
+# abline(h=0, lty=2)
+# polygon(x=c(d$brood_year, rev(d$brood_year)), y=c(ci_ppd[1,], rev(ci_ppd[2,])), col = adjustcolor('grey', alpha=0.5), border = NA)
+# polygon(x=c(d$brood_year, rev(d$brood_year)), y=c(ci_ppd50[1,], rev(ci_ppd50[2,])), col = adjustcolor('grey', alpha=0.5), border = NA)
+# polygon(x=c(d$brood_year, rev(d$brood_year)), y=c(ci_ppd10[1,], rev(ci_ppd10[2,])), col = adjustcolor('grey', alpha=0.5), border = NA)
+# dev.off()
 
 
 # Model fit --------
@@ -93,19 +132,6 @@ polygon(x=c(ci_ppd[,1], rev(ci_ppd[,1])), y=c(0,0,1,1), col=adjustcolor("gray", 
 polygon(x=c(ci_ppd50[,1], rev(ci_ppd50[,1])), y=c(0,0,1,1), col=adjustcolor("gray", alpha=0.5), border=NA)
 polygon(x=c(ci_ppd10[,1], rev(ci_ppd10[,1])), y=c(0,0,1,1), col=adjustcolor("gray", alpha=0.5), border=NA)
 
-# Plot log(recruits/spawners) time series with predicted intervals
-png(filename="./figures/fig_predicted_logRS_time_series.png", width=1200, height=800, pointsize = 30)
-par(mar=c(4,4,0,0) +0.1)
-plot(y=log(d$wild_recruits/d$total_spawners), x=d$brood_year, ylim=c(min(ci_pp_log_RS), max(ci_pp_log_RS)), xlab="Brood year", ylab=expression('log'[e]*'(Recruits/Spawner)'), las=1)
-lines(y=mn_pp_log_RS, x=d$brood_year, col="dodger blue")
-#lines(y=median_pp_log_RS, x=d$brood_year, col="firebrick")
-abline(h=0, lty=2)
-polygon(x=c(d$brood_year, rev(d$brood_year)), y=c(ci_pp_log_RS[1,], rev(ci_pp_log_RS[2,])), col = adjustcolor('grey', alpha=0.5), border = NA)
-polygon(x=c(d$brood_year, rev(d$brood_year)), y=c(ci_pp_log_RS_50[1,], rev(ci_pp_log_RS_50[2,])), col = adjustcolor('grey', alpha=0.5), border = NA)
-#polygon(x=c(d$brood_year, rev(d$brood_year)), y=c(ci_pp_log_RS_10[1,], rev(ci_pp_log_RS_10[2,])), col = adjustcolor('grey', alpha=0.5), border = NA)
-dev.off()
-# FLAG these are quite narrow CIs. Check. 
-
 # plot predicted vs observed recruits
 png(filename="./figures/fig_predicted~observed_R.png", width=1200, height=800, pointsize = 30)
 par(mar=c(4,4,0,0) +0.1)
@@ -115,8 +141,8 @@ abline(b=1, a=0, lwd=2, lty=2, col="orange")
 dev.off()
 
 # get R2 value
-#cor(log(d$wild_recruits/d$total_spawners), mn_pp_log_RS)^2
-cor(d$wild_recruits, mn_ppd)
+cor(log(d$wild_recruits/d$total_spawners), mn_pp_log_RS_stacked)^2
+cor(d$wild_recruits, mn_ppd)^2
 
 # Plot predicted vs observed log(recruits/spawner)
 png(filename="./figures/fig_predicted~observed_log_RS.png", width=1200, height=800, pointsize = 30)
@@ -127,7 +153,7 @@ abline(b=1, a=0, lwd=2, lty=2, col="orange")
 dev.off()
 
 # Look at residuals
-resid_logRS <- log(d$wild_recruits/d$total_spawners) - mn_pp_log_RS
+resid_logRS <- log(d$wild_recruits/d$total_spawners) - mn_pp_log_RS_stacked
 
 # Check normality of residuals 
 # histograms
@@ -160,7 +186,7 @@ dev.off()
 
 # Residuals ~ predicted
 png("./figures/fig_resid_pred.png",  width=1200, height=800, pointsize = 30)
-plot(resid_logRS ~ mn_pp_log_RS, ylab="Residuals", xlab="Predicted") 
+plot(resid_logRS ~ mn_pp_log_RS_stacked, ylab="Residuals", xlab="Predicted") 
 dev.off()
 
 # Residuals ~ year
