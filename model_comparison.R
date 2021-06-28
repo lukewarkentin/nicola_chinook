@@ -510,11 +510,12 @@ saveRDS(loovals, file="data_out/loo_values.rds")}
 # load loo values
 loovals <- readRDS("data_out/loo_values.rds")
 
-loovals[[1]]
-plot(loovals[[8]]) # plot Pareto shape k value for each observation
+loovals
+plot(loovals[[1]]) # plot Pareto shape k value for each observation
 loo_mod_compare <- loo_compare(loovals)
 lootab <- as.data.frame(loo_mod_compare)
 #row.names(lootab) <- paste0("fit_ricker_", as.numeric(substr(row.names(lootab),6,8))-1) 
+# fix names
 row.names(lootab) <- as.numeric(substr(row.names(lootab),6,8))-1
 row.names(lootab) <- ifelse(as.numeric(row.names(lootab)) <= 11, row.names(lootab), paste0(as.numeric(row.names(lootab))-12, "b"))
 row.names(lootab) <- paste0("Model ", row.names(lootab))

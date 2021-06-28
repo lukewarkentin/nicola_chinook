@@ -80,6 +80,9 @@ sd$recruits_per_spawner <- sd$wild_recruits / sd$total_spawners
 
 # Read in flow data --------
 fd <- read.csv("./data/nicola_yearly_flows_all_months.csv") # read in flow data 
+# subset of flow data columns to keep
+pars_keep <- c("year", "aug_mean_flow", "ice_days", "sep_dec_max_flow", "aug_mean_flow_rear")
+fd <- fd[,names(fd) %in% pars_keep]
 
 # Add flow variables
 d <- left_join(sd, fd, by=c("brood_year"="year"), all.x=TRUE)

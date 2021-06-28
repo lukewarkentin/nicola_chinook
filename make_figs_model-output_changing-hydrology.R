@@ -31,6 +31,35 @@ d_unscaled <- read.csv("./data/model_data_unscaled.csv")
 # read in data frame of posterior samples of model parameters from model stacking
 post <- read.csv("data_out/model_stacking_posterior_samples.csv")
 
+# Save csv table of summary stats for posterior estimates
+options(scipen = 12) # adjust so estimates are in fixed notation
+names(post)
+params_sum <- c("b1", "b2", "b3", "b4", "b5", "alpha", "beta", "betaW", "betaH", "beta_fix", "betaW_fix", "betaH_fix","tau" ) # parameters to get summaries of
+post2 <- post[ , names(post) %in% params_sum] # get posteriors to summarize
+post2l <- post2 %>% pivot_longer(everything(),names_to="param", values_to="value") # wide to long format
+# summarise for tabl ein manuscript 
+post2s <- post2l %>% group_by(param) %>% summarise(Mean=mean(value, na.rm=TRUE), SD=sd(value, na.rm=FALSE), q05 = rethinking::PI(value, prob=0.9)[1], q95=rethinking::PI(value, prob=0.9)[2] )
+# round to 3 signigicant digits
+post2s[,2:5] <- signif(post2s[,2:5], digits=3)
+write.csv(post2s, "data_out/parameter_estimates_summary_stacked.csv", row.names = FALSE) # save
+
+# predictor correlation fig
+cor(d_unscaled[,9:13])
+panel.cor <- function(x, y, digits = 2, prefix = "", cex.cor, ...) {
+  usr <- par("usr")
+  on.exit(par(usr))
+  par(usr = c(0, 1, 0, 1))
+  Cor <-cor(x, y) # Remove abs function if desired
+  txt <- paste0(prefix, format(c(Cor, 0.123456789), digits = digits)[1])
+  text(0.5, 0.5, txt,
+       cex = 1) # Resize the text by level of correlation
+}
+# Plotting the correlation matrix
+png("figures/fig_correlation_predictors.png", height=5,width=6.5, units="in", res=300)
+pairs(d_unscaled[,9:13],
+      upper.panel = panel.cor,    # Correlation panel
+      labels=c("Aug. flow spawning", "Max fall flood", "Ice days", "Aug. flow rearing", "Smolt to age 3 survival")) # Smoothed regression lines
+dev.off()
 # get posterior predictions for log(recruits/spawners)
 # compare stacked log(pred_r/s) and recalculated log(pred_r/s) based on stacked posteriors
 pp_log_RS_stacked <- post[, grep("pp_log_RS", colnames(post))] # I'm not sure if this works for stacked posteriors
@@ -186,7 +215,7 @@ flow_30perc_harv_unscaled <- DMwR::unscale(vals=flow_30perc_harv, norm.data=scal
 pred_flow_unscaled <- DMwR::unscale(vals=pred_flow, norm.data=scale(d_unscaled$aug_mean_flow_rear))
 
 # get labels for second R/S y axis
-sec_yax <- c(0.5, c(1,2,4,6,8,10,12,14))
+sec_yax <- c(0.1,0.2,0.5, c(1,2,4,6,8))
 
 # Get all the flow data
 fd <- hy_daily_flows(station_number= "08LG006")
@@ -220,7 +249,8 @@ cols <- cbbPalette[c(1,3,2,7)]
 # get long-term average august flows for paper
 fd %>% filter(month==8) %>% summarise(avg_aug_flow = mean(Value, na.rm=TRUE))
 fd %>% filter(month==8) %>% group_by(period) %>% summarise(avg_aug_flow = mean(Value, na.rm=TRUE))
-(8.5-11.5) / 11.5 # calculate change in average august flows from period 1 to 4
+(8.55-11.5) / 11.5 # calculate change in average august flows from period 1 to 4
+# checked if including flow up to 2019 changes this, it makes it even a larger decrease. Will keep the same for consistency with the original submission.
 
 # Set up for cumulative proportion flows
 cdf1 <- ecdf(fd2$mean_aug_flow[fd2$period==1 ])
@@ -250,13 +280,6 @@ mad <- 29.8
 # Plot log(R/S) as a function of mean august flow with distribution of flows -- Publication Figure 2 ----------
 png(filename = "./figures/fig_logRS_flow.png", width=8, height=8, units="in", res=300, pointsize=20)
 
-# Obsolete: cumulative frequency curves
-# plot(x, p1, type="l", col=cols[1], ylab="Cumulative proportion", main="", xlim=c(0,max(d_unscaled$aug_mean_flow_rear)), lwd=2, las=1)
-# lines(x, p2, col=cols[2], lwd=2)
-# lines(x, p3, col=cols[3], lwd=2)
-# lines(x, p4, col=cols[4], lwd=2)
-# abline(h=0.5, lty=3)
-
 layout(matrix(c(1,2,2), nrow=3, ncol=1, byrow = TRUE)) # layout for multi-panel plot
 
 par(mar=c(0.1,4,4,4), bty="L") # plot margins for upper panel
@@ -284,7 +307,7 @@ legend("topright",
 #plot(log(d$wild_recruits/d$total_spawners) ~ d$aug_mean_flow_rear, xlab="Mean Aug flow cms (scaled)", ylab="log(R/S)")
 par(mar=c(4,4,0.1,4)) # set plot margins
 # plot effect mean august flows (rearing) on log(R/S)
-plot(pred_flow_unscaled, pred_mean_mean, type="l", lwd=1.4,  ylim=c(min(pred_75_HPDI),  max(pred_25_HPDI)), xlim=c(0,max(d_unscaled$aug_mean_flow_rear)), xlab=expression("Mean August flow (m"^3*"s"^-1*")"), ylab=expression("log"[e]*"(Recruits/Spawner)"), las=1)
+plot(pred_flow_unscaled, pred_mean_mean, type="l", lwd=1.4,  ylim=c(min(log(d_unscaled$wild_recruits/d_unscaled$total_spawners)),  max(log(d_unscaled$wild_recruits/d_unscaled$total_spawners))), xlim=c(0,max(d_unscaled$aug_mean_flow_rear)), xlab=expression("Mean August flow (m"^3*"s"^-1*")"), ylab=expression("log"[e]*"(Recruits/Spawner)"), las=1)
 
 # Add credible intervals for mean prediction
 rethinking::shade(pred_mean_HPDI, pred_flow_unscaled, col=adjustcolor(col="black", alpha=0.2) )
@@ -294,7 +317,7 @@ lines(pred_flow_unscaled, pred_75_mean, col="dodgerblue", lwd=1.4)
 rethinking::shade(pred_75_HPDI, pred_flow_unscaled, col=adjustcolor(col="dodgerblue", alpha=0.2))
 
 legend("bottomright", # add legend for spawner abundance
-       inset=c(0, 0),
+       inset=c(0, 0.05),
        legend=c("75% quantile spawners", "Mean spawners", "25% quantile spawners"),
        col=c("dodgerblue", "black", "pink"),
        pch="l",
@@ -305,10 +328,11 @@ axis(side=4, labels=sec_yax, at=log(sec_yax), las=1) # add axis for recruits/spa
 mtext("Recruits/Spawner", side=4, line=2, cex=0.7) # label second axis
 abline(v=xint_unscaled, col="gray", lty=2) # add vertical line at replacement flows
 text(x=0, y=1.5, label="b")
-# abline(v=14.35)
-# abline(h=log(1.43))
-dev.off()
+# add rugplots for data
+rug(x=d_unscaled$aug_mean_flow_rear, side=1, lwd=2, col="gray")
+rug(x=log(d_unscaled$wild_recruits/d_unscaled$total_spawners), side=2, lwd=2, col="gray")
 
+dev.off()
 
 
 # Plot residuals of observed and mean ricker predictions without any covariates - Publication Figure 3 -------
@@ -320,31 +344,31 @@ par(mar=c(4,4,0.5,0.1), bty="L")
 plot(y=d$wild_recruits, x=d$total_spawners, ylab="Wild recruits", xlab="Total spawners")
 curve(x*mean(post$alpha)*exp(-mean(post$beta_fix)*x ), from=0, to=max(d$total_spawners), add=TRUE)
 segments(x0=d$total_spawners, x1=d$total_spawners, y0=predicted_ricker, y1=d$wild_recruits, col="dodgerblue")
-text(x=15000, y=15500, label="a", col="gray")
+text(x=15000, y=15500, label="a")
 # Smolt to age 3 survival
 plot(x=d_unscaled$smolt_age3_survival, y=d$wild_recruits - predicted_ricker , ylab="Residual recruits", xlab="Smolt to age 3 survival", cex=1.5)
 #text(x=d_unscaled$smolt_age3_survival, y=d$wild_recruits - predicted_ricker, label=d$brood_year )
-text(x=0.1, y=10000, label="b", col="gray")
+text(x=0.1, y=10000, label="b")
 
 # Aug flow spawning
 plot(x=d_unscaled$aug_mean_flow, y=d$wild_recruits - predicted_ricker, ylab="Residual recruits", xlab=expression("Mean August flow during spawning (m"^3*"s"^-1*")"), cex=1.5)
 #text(x=d_unscaled$aug_mean_flow, y=d$wild_recruits - predicted_ricker, label=d$brood_year )
-text(x=25, y=10000, label="c", col="gray")
+text(x=25, y=10000, label="c")
 
 # Fall flood max
 plot(x=d_unscaled$sep_dec_max_flow, y=d$wild_recruits - predicted_ricker , ylab="Residual recruits", xlab=expression("Max flood Sep-Dec during incubation (m"^3*"s"^-1*")"), cex=1.5)
 #text(x=d_unscaled$sep_dec_max_flow, y=d$wild_recruits - predicted_ricker, label=d$brood_year )
-text(x=175, y=10000, label="d", col="gray")
+text(x=175, y=10000, label="d")
 
 # Ice days
 plot(x=d_unscaled$ice_days, y=d$wild_recruits - predicted_ricker, ylab="Residual recruits", xlab="Ice days", cex=1.5)
 #text(x=d_unscaled$ice_days, y=d$wild_recruits - predicted_ricker, label=d$brood_year )
-text(x=110, y=10000, label="e", col="gray")
+text(x=110, y=10000, label="e")
 
 # Aug flow rearing
 plot(x=d_unscaled$aug_mean_flow_rear, y=d$wild_recruits - predicted_ricker, ylab="Residual recruits", xlab=expression("Mean August flow during rearing (m"^3*"s"^-1*")"), cex=1.5)
 #text(x=d_unscaled$aug_mean_flow_rear, y=d$wild_recruits - predicted_ricker, label=d$brood_year )
-text(x=25, y=10000, label="f", col="gray")
+text(x=25, y=10000, label="f")
 
 dev.off()
 
@@ -370,33 +394,41 @@ dev.off()
 
  # Calculate environmental effects on recruitment for paper results-------
 # get posterior predictions beta terms
-ef <- post[, grep("b[[:digit:]]", colnames(post))]
-mn_ef <- apply(ef,2,mean) # get mean of predicted
-ci95_ef <- apply(ef,2,rethinking::PI,prob=0.95) # get CI of predicted
-ci80_ef <- apply(ef,2,rethinking::PI,prob=0.8) # get CI of predicted
-mn_ef
+post2s
 
 # Write function to convert any aribitrary flow into scaled according to actual values
 faux_scale <- function(x, scale_by) {
   (x -  mean(scale_by)) / sd(scale_by)
 }
 
-# test
-faux_scale(x= 10.3, scale_by=d_unscaled$aug_mean_flow_rear)
-# check that qauntiles are equal
-quantile(d$smolt_age3_survival, 0.25)
-faux_scale(x=quantile(d_unscaled$smolt_age3_survival, 0.25), scale_by=d_unscaled$smolt_age3_survival)
+# # test
+# faux_scale(x= 10.3, scale_by=d_unscaled$aug_mean_flow_rear)
+# # check that qauntiles are equal
+# quantile(d$smolt_age3_survival, 0.25)
+# faux_scale(x=quantile(d_unscaled$smolt_age3_survival, 0.25), scale_by=d_unscaled$smolt_age3_survival)
 
 # write function to calculate recruits from each run of the model for a series of flows (one beta)
-predict_recruits <- function(smolt_age3_surv, aug_flow, aug_flow_rear, ice_days, spawners) {
-  logRS <- log(mean(post$alpha)) - mean(post$beta) * mean(d$total_spawners) + mean(post$b1) * smolt_age3_surv + mean(post$b2) * aug_flow + mean(post$b4) * ice_days + mean(post$b5) * aug_flow_rear 
-  RS <- exp(logRS)
-  R <- RS * spawners
-  return(c(RS, R))}
+perc_change_recruits <- function(spawners, var_change, value1, value2) { 
+  # table 
+  par_key <- data.frame(var = c("smolt_age3_surv", "aug_flow_spawn", "fall_flood", "ice_days", "aug_flow_rear"), par = c("b1", "b2", "b3", "b4", "b5"))
+  par_use <- par_key$par[par_key$var==var_change]
+  logRS_m_i <- log(post2s$Mean[post2s$param=="alpha"]) - post2s$Mean[post2s$param=="beta_fix"] * mean(d$total_spawners) + post2s$Mean[post2s$param==par_use] * value1
+  logRS_05_i <- log(post2s$Mean[post2s$param=="alpha"]) - post2s$Mean[post2s$param=="beta_fix"] * mean(d$total_spawners) + post2s$q05[post2s$param==par_use] * value1
+  logRS_95_i <- log(post2s$Mean[post2s$param=="alpha"]) - post2s$Mean[post2s$param=="beta_fix"] * mean(d$total_spawners) + post2s$q95[post2s$param==par_use] * value1
+  logRS_i <- c(logRS_m_i, logRS_05_i, logRS_95_i)
+  logRS_m_f <- log(post2s$Mean[post2s$param=="alpha"]) - post2s$Mean[post2s$param=="beta_fix"] * mean(d$total_spawners) + post2s$Mean[post2s$param==par_use] * value2
+  logRS_05_f <- log(post2s$Mean[post2s$param=="alpha"]) - post2s$Mean[post2s$param=="beta_fix"] * mean(d$total_spawners) + post2s$q05[post2s$param==par_use] * value2
+  logRS_95_f <- log(post2s$Mean[post2s$param=="alpha"]) - post2s$Mean[post2s$param=="beta_fix"] * mean(d$total_spawners) + post2s$q95[post2s$param==par_use] * value2
+  logRS_f <- c(logRS_05_f, logRS_m_f, logRS_95_f)
+  R_i <- exp(logRS_i) * spawners
+  R_f <- exp(logRS_f) * spawners
+  return( (R_f - R_i) / R_i ) # percent change
+}
 
 # predict recruits at mean and 50% below mean rearing flows
-mean(d_unscaled$aug_mean_flow_rear)
-mean(d_unscaled$aug_mean_flow_rear) - 0.5 * mean(d_unscaled$aug_mean_flow_rear)
+perc_change_recruits(spawners=mean(d$total_spawners), var_change="aug_flow_rear", 
+                     value1 = faux_scale(mean(d_unscaled$aug_mean_flow_rear), d_unscaled$aug_mean_flow_rear),
+                     value2 = faux_scale( mean(d_unscaled$aug_mean_flow_rear) - 0.5 * mean(d_unscaled$aug_mean_flow_rear), d_unscaled$aug_mean_flow_rear))
 
 pred1 <- predict_recruits(smolt_age3_surv=0,
                  aug_flow = 0, 
