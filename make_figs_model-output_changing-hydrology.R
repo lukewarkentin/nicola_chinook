@@ -177,12 +177,28 @@ dev.off()
 pred_flow <- seq(min(d$aug_mean_flow_rear), max(d$aug_mean_flow_rear), length.out = 1000)
 
 # write function to calculate log(R/S) from each run of the model for a series of flows (one beta)
-# pred_mean_sp <- function(aug_flow) log(post$alpha) - post$beta * mean(d$total_spawners) + post$b5 * aug_flow
-# pred_25_sp <- function(aug_flow) log(post$alpha) - post$beta * quantile(d$total_spawners, 0.25) + post$b5 * aug_flow
-# pred_75_sp <- function(aug_flow) log(post$alpha) - post$beta * quantile(d$total_spawners, 0.75) + post$b5 * aug_flow
-pred_mean_sp <- function(aug_flow) log(post$alpha) - post$beta_fix * mean(d$total_spawners) + post$b5 * aug_flow
-pred_25_sp <- function(aug_flow) log(post$alpha) - post$beta_fix * quantile(d$total_spawners, 0.25) + post$b5 * aug_flow
-pred_75_sp <- function(aug_flow) log(post$alpha) - post$beta_fix * quantile(d$total_spawners, 0.75) + post$b5 * aug_flow
+ST <- mean(d$total_spawners)
+SW <- mean(d$wild_spawners)
+SH <- mean(d$total_spawners) - mean(d$wild_spawners)
+ST25 <- quantile(d$total_spawners, 0.25)
+SW25 <- quantile(d$wild_spawners, 0.25)
+SH25 <- quantile(d$total_spawners, 0.25) - quantile(d$wild_spawners, 0.25)
+ST75 <- quantile(d$total_spawners, 0.75)
+SW75 <- quantile(d$wild_spawners, 0.75)
+SH75 <-  quantile(d$total_spawners, 0.75) - quantile(d$wild_spawners, 0.75)
+pred_mean_sp <- function(aug_flow) {
+  log(post$alpha) - post$beta * ST -post$betaW * SW -post$betaH * SH + post$b5 * aug_flow
+}
+pred_25_sp <- function(aug_flow) {
+  log(post$alpha) - post$beta * ST25 -post$betaW * SW25 -post$betaH * SH25 + post$b5 * aug_flow
+}
+pred_75_sp <- function(aug_flow) {
+  log(post$alpha) - post$beta * ST75 -post$betaW * SW75 -post$betaH * SH75+ post$b5 * aug_flow
+}
+
+# pred_mean_sp <- function(aug_flow) log(post$alpha) - post$beta_fix * mean(d$total_spawners) + post$b5 * aug_flow
+# pred_25_sp <- function(aug_flow) log(post$alpha) - post$beta_fix * quantile(d$total_spawners, 0.25) + post$b5 * aug_flow
+# pred_75_sp <- function(aug_flow) log(post$alpha) - post$beta_fix * quantile(d$total_spawners, 0.75) + post$b5 * aug_flow
 
 # write function to calculate a log(R/S) from each run of the model for a series of flows (two betas) -------
 # pred_mean_sp <- function(aug_flow) log(post$alpha) - post$betaW * mean(d$wild_spawners) - post$betaH * mean(d$hatchery_spawners) + post$b5 * aug_flow
@@ -195,11 +211,11 @@ pred_logRS_25 <- sapply(pred_flow, pred_25_sp)
 pred_logRS_75 <- sapply(pred_flow, pred_75_sp)
 
 pred_mean_mean <- apply(pred_logRS_mean, 2, mean)
-pred_mean_HPDI <- apply(pred_logRS_mean, 2, rethinking::HPDI, prob=0.9)
+pred_mean_HPDI <- apply(pred_logRS_mean, 2, rethinking::PI, prob=0.9)
 pred_25_mean <- apply(pred_logRS_25, 2, mean)
-pred_25_HPDI <- apply(pred_logRS_25, 2, rethinking::HPDI, prob=0.9)
+pred_25_HPDI <- apply(pred_logRS_25, 2, rethinking::PI, prob=0.9)
 pred_75_mean <- apply(pred_logRS_75, 2, mean)
-pred_75_HPDI <- apply(pred_logRS_75, 2, rethinking::HPDI, prob=0.9)
+pred_75_HPDI <- apply(pred_logRS_75, 2, rethinking::PI, prob=0.9)
 
 # get x intercept: flow when log(R/S) is 0 (replacement)
 xint <- pred_flow[which.min(abs(pred_mean_mean))]
