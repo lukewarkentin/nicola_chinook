@@ -208,6 +208,18 @@ pred_25_HPDI <- apply(pred_logRS_25, 2, rethinking::PI, prob=0.9)
 pred_75_mean <- apply(pred_logRS_75, 2, mean)
 pred_75_HPDI <- apply(pred_logRS_75, 2, rethinking::PI, prob=0.9)
 
+
+# For % Mean Annual Discharge (MAD)
+# Calculate mean annual discharge for Nicola, using only days from years with complete records 
+# make table of flow observations by year
+# test <- table(fd$year)
+# get years which are complete 
+# yrs_complete <- as.numeric(dimnames(test)[[1]])[which(as.numeric(test)>=365)]
+# calculate MAD for values from complete years only
+# mad <- mean(fd$Value[fd$year %in% yrs_complete], na.rm=TRUE)
+# Use Ptolemy unpublished estimate of naturalized, long-term Mean annual discharge 
+mad <- 29.8
+
 # get x intercept: flow when log(R/S) is 0 (replacement)
 xint <- pred_flow[which.min(abs(pred_mean_mean))]
 #xint <- -(log(mean(post$alpha)) - mean(post$beta) * mean(d$total_spawners)) / mean(post$b5)
@@ -217,6 +229,7 @@ xint_unscaled <- DMwR::unscale(vals=xint, norm.data=scale(d_unscaled$aug_mean_fl
 # get value of x where log(R/S) is log(1.43) (sustain 30% fishery harvest) ------------
 flow_30perc_harv <- pred_flow[which.min(abs(pred_mean_mean-log(1.43)))]
 flow_30perc_harv_unscaled <- DMwR::unscale(vals=flow_30perc_harv, norm.data=scale(d_unscaled$aug_mean_flow_rear))
+flow_30perc_harv_unscaled / 
 
 # Make vectors for unscaled mean aug flow axis
 pred_flow_unscaled <- DMwR::unscale(vals=pred_flow, norm.data=scale(d_unscaled$aug_mean_flow_rear))
@@ -271,17 +284,6 @@ p2 <- cdf2(x)
 p3 <- cdf3(x)
 p4 <- cdf4(x)
 
-# For % Mean Annual Discharge (MAD)
-# Calculate mean annual discharge for Nicola, using only days from years with complete records 
-# make table of flow observations by year
-# test <- table(fd$year)
-# get years which are complete 
-# yrs_complete <- as.numeric(dimnames(test)[[1]])[which(as.numeric(test)>=365)]
-# calculate MAD for values from complete years only
-# mad <- mean(fd$Value[fd$year %in% yrs_complete], na.rm=TRUE)
-# Use Ptolemy unpublished estimate of naturalized, long-term Mean annual discharge 
-mad <- 29.8
-# get %MAD axis labels
 
 # Plot log(R/S) as a function of mean august flow with distribution of flows -- Publication Figure 2 ----------
 png(filename = "./figures/fig_logRS_flow.png", width=8, height=8, units="in", res=300, pointsize=20)
