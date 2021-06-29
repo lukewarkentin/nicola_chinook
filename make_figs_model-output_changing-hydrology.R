@@ -176,7 +176,7 @@ dev.off()
 # Get vector of mean_aug_flow to predict for
 pred_flow <- seq(min(d$aug_mean_flow_rear), max(d$aug_mean_flow_rear), length.out = 1000)
 
-# write function to calculate log(R/S) from each run of the model for a series of flows (one beta)
+# write function to calculate log(R/S) from each run of the model for a series of flows (three betas)
 ST <- mean(d$total_spawners)
 SW <- mean(d$wild_spawners)
 SH <- mean(d$total_spawners) - mean(d$wild_spawners)
@@ -195,15 +195,6 @@ pred_25_sp <- function(aug_flow) {
 pred_75_sp <- function(aug_flow) {
   log(post$alpha) - post$beta * ST75 -post$betaW * SW75 -post$betaH * SH75+ post$b5 * aug_flow
 }
-
-# pred_mean_sp <- function(aug_flow) log(post$alpha) - post$beta_fix * mean(d$total_spawners) + post$b5 * aug_flow
-# pred_25_sp <- function(aug_flow) log(post$alpha) - post$beta_fix * quantile(d$total_spawners, 0.25) + post$b5 * aug_flow
-# pred_75_sp <- function(aug_flow) log(post$alpha) - post$beta_fix * quantile(d$total_spawners, 0.75) + post$b5 * aug_flow
-
-# write function to calculate a log(R/S) from each run of the model for a series of flows (two betas) -------
-# pred_mean_sp <- function(aug_flow) log(post$alpha) - post$betaW * mean(d$wild_spawners) - post$betaH * mean(d$hatchery_spawners) + post$b5 * aug_flow
-# pred_25_sp <- function(aug_flow) log(post$alpha) - post$betaW * quantile(d$wild_spawners, 0.25) - post$betaH * quantile(d$hatchery_spawners, 0.25) + post$b5 * aug_flow
-# pred_75_sp <- function(aug_flow) log(post$alpha) - post$betaW * quantile(d$wild_spawners, 0.75) - post$betaH * quantile(d$hatchery_spawners, 0.75) + post$b5 * aug_flow
 
 # generate predictions for a series of flows
 pred_logRS_mean <- sapply(pred_flow, pred_mean_sp)
@@ -292,7 +283,6 @@ p4 <- cdf4(x)
 mad <- 29.8
 # get %MAD axis labels
 
-
 # Plot log(R/S) as a function of mean august flow with distribution of flows -- Publication Figure 2 ----------
 png(filename = "./figures/fig_logRS_flow.png", width=8, height=8, units="in", res=300, pointsize=20)
 
@@ -352,13 +342,18 @@ dev.off()
 
 
 # Plot residuals of observed and mean ricker predictions without any covariates - Publication Figure 3 -------
-predicted_ricker <- d$total_spawners*mean(post$alpha)*exp(-mean(post$beta_fix)*d$total_spawners) # get predicted mean spawners
+ST <- mean(d$total_spawners)
+#get average proportion wild spawners
+prop_wild <- mean(d$wild_spawners/d$total_spawners)
+# scale wild and hatchery spawners using proportion wild, because it will have to scale to different values of x on the plot
+predicted_ricker <- d$total_spawners*mean(post$alpha)*exp(-mean(post$beta)*d$total_spawners - mean(post$betaW)*d$total_spawners*prop_wild -mean(post$betaH)*d$total_spawners*(1-prop_wild)) # get predicted mean spawners
+
 png(filename = "./figures/fig_resid_ricker_plots.png", width=8, height=8, units="in", res=300, pointsize=17)
 layout(matrix(c(1,2,3,4,5,6), ncol=2, nrow=3, byrow=TRUE))
 par(mar=c(4,4,0.5,0.1), bty="L")
 # Standard ricker with residuals
 plot(y=d$wild_recruits, x=d$total_spawners, ylab="Wild recruits", xlab="Total spawners")
-curve(x*mean(post$alpha)*exp(-mean(post$beta_fix)*x ), from=0, to=max(d$total_spawners), add=TRUE)
+curve( x*mean(post$alpha)*exp(-mean(post$beta)*x - mean(post$betaW)*x*prop_wild -mean(post$betaH)*x*(1-prop_wild)) , from=0, to=max(d$total_spawners), add=TRUE)
 segments(x0=d$total_spawners, x1=d$total_spawners, y0=predicted_ricker, y1=d$wild_recruits, col="dodgerblue")
 text(x=15000, y=15500, label="a")
 # Smolt to age 3 survival
