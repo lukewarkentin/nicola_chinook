@@ -407,39 +407,29 @@ faux_scale <- function(x, scale_by) {
 # quantile(d$smolt_age3_survival, 0.25)
 # faux_scale(x=quantile(d_unscaled$smolt_age3_survival, 0.25), scale_by=d_unscaled$smolt_age3_survival)
 
-# write function to predict recruits for one or two environmental values, with 90% CI
-predict_RS <- function(spawners, var1, var1_value, var2, var2_value) { 
-  # table 
-  par_key <- data.frame(var = c("smolt_age3_surv", "aug_flow_spawn", "fall_flood", "ice_days", "aug_flow_rear"), par = c("b1", "b2", "b3", "b4", "b5"))
-  par1_use <- par_key$par[par_key$var==var1]
-  if(var2=="none") {
-  logRS_m_i <- log(post2s$Mean[post2s$param=="alpha"]) - post2s$Mean[post2s$param=="beta_fix"] * mean(d$total_spawners) + post2s$Mean[post2s$param==par1_use] * var1_value 
-  logRS_05_i <- log(post2s$Mean[post2s$param=="alpha"]) - post2s$Mean[post2s$param=="beta_fix"] * mean(d$total_spawners) + post2s$q05[post2s$param==par1_use] * var1_value
-  logRS_95_i <- log(post2s$Mean[post2s$param=="alpha"]) - post2s$Mean[post2s$param=="beta_fix"] * mean(d$total_spawners) + post2s$q95[post2s$param==par1_use] * var1_value
-  }
-  else{
-  par2_use <- par_key$par[par_key$var==var2]
-  logRS_m_i <- log(post2s$Mean[post2s$param=="alpha"]) - post2s$Mean[post2s$param=="beta_fix"] * mean(d$total_spawners) + post2s$Mean[post2s$param==par1_use] * var1_value + post2s$Mean[post2s$param==par2_use] * var2_value
-  logRS_05_i <- log(post2s$Mean[post2s$param=="alpha"]) - post2s$Mean[post2s$param=="beta_fix"] * mean(d$total_spawners) + post2s$q05[post2s$param==par1_use] * var1_value + post2s$q05[post2s$param==par2_use] * var2_value
-  logRS_95_i <- log(post2s$Mean[post2s$param=="alpha"]) - post2s$Mean[post2s$param=="beta_fix"] * mean(d$total_spawners) + post2s$q95[post2s$param==par1_use] * var1_value + post2s$q95[post2s$param==par2_use] * var2_value 
-  }
-  logRS_i <- c(logRS_05_i, logRS_m_i, logRS_95_i)
-  RS_i <- exp(logRS_i)
-  return( RS_i) # percent change
-}
-
 # write function to calculate % change in recruits for two different environmental values, with 90% CI
 perc_change_RS <- function(spawners, var_change, value1, value2) { 
   # table 
   par_key <- data.frame(var = c("smolt_age3_surv", "aug_flow_spawn", "fall_flood", "ice_days", "aug_flow_rear"), par = c("b1", "b2", "b3", "b4", "b5"))
   par_use <- par_key$par[par_key$var==var_change]
-  logRS_m_i <- log(post2s$Mean[post2s$param=="alpha"]) - post2s$Mean[post2s$param=="beta_fix"] * mean(d$total_spawners) + post2s$Mean[post2s$param==par_use] * value1
-  logRS_05_i <- log(post2s$Mean[post2s$param=="alpha"]) - post2s$Mean[post2s$param=="beta_fix"] * mean(d$total_spawners) + post2s$q05[post2s$param==par_use] * value1
-  logRS_95_i <- log(post2s$Mean[post2s$param=="alpha"]) - post2s$Mean[post2s$param=="beta_fix"] * mean(d$total_spawners) + post2s$q95[post2s$param==par_use] * value1
+  # parameters and values to use
+  a <- post2s$Mean[post2s$param=="alpha"]
+  b <- post2s$Mean[post2s$param=="beta"]
+  ST <- mean(d$total_spawners)
+  bW <- post2s$Mean[post2s$param=="betaW"]
+  SW <- mean(d$wild_spawners)
+  bH <- post2s$Mean[post2s$param=="betaH"]
+  SH <- (mean(d$total_spawners) - mean(d$wild_spawners))
+  par_mean <- post2s$Mean[post2s$param==par_use]
+  par_q05 <- post2s$q05[post2s$param==par_use]
+  par_q95 <- post2s$q95[post2s$param==par_use]
+  logRS_m_i <- log(a) - b * ST - bW * SW - bH * SH + par_mean  * value1
+  logRS_05_i <- log(a) - b * ST - bW * SW - bH * SH + par_q05 * value1
+  logRS_95_i <- log(a) - b * ST - bW * SW - bH * SH + par_q95 * value1
   logRS_i <- c(logRS_05_i, logRS_m_i, logRS_95_i)
-  logRS_m_f <- log(post2s$Mean[post2s$param=="alpha"]) - post2s$Mean[post2s$param=="beta_fix"] * mean(d$total_spawners) + post2s$Mean[post2s$param==par_use] * value2
-  logRS_05_f <- log(post2s$Mean[post2s$param=="alpha"]) - post2s$Mean[post2s$param=="beta_fix"] * mean(d$total_spawners) + post2s$q05[post2s$param==par_use] * value2
-  logRS_95_f <- log(post2s$Mean[post2s$param=="alpha"]) - post2s$Mean[post2s$param=="beta_fix"] * mean(d$total_spawners) + post2s$q95[post2s$param==par_use] * value2
+  logRS_m_f <- log(a) - b * ST - bW * SW - bH * SH + par_mean * value2
+  logRS_05_f <- log(a) - b * ST - bW * SW - bH * SH + par_q05 * value2
+  logRS_95_f <- log(a) - b * ST - bW * SW - bH * SH + par_q95 * value2
   logRS_f <- c(logRS_05_f, logRS_m_f, logRS_95_f)
    RS_i <- exp(logRS_i) # get recruits/spawner for initial value
    RS_f <- exp(logRS_f) # get recruits/spawner for final value
@@ -447,11 +437,12 @@ perc_change_RS <- function(spawners, var_change, value1, value2) {
   #(logRS_f - logRS_i)/logRS_i
 }
 
-# write function to calculate recruits from each run of the model for a series of flows (one beta)
-predict_recruits <- function(smolt_age3_surv, aug_flow, aug_flow_rear, ice_days, spawners) {
-  logRS <- log(mean(post$alpha)) - mean(post$beta_fix) * mean(d$total_spawners) + mean(post$b1) * smolt_age3_surv + mean(post$b2) * aug_flow + mean(post$b3) * fall_flood + mean(post$b4) * ice_days + mean(post$b5) * aug_flow_rear 
+# write function to calculate recruits and recruits/spawner from each run of the model for a series of flows (one beta)
+
+predict_recruits <- function(smolt_age3_surv, aug_flow, fall_flood, aug_flow_rear, ice_days) {
+  logRS <- log(mean(post$alpha)) - mean(post$beta) * mean(d$total_spawners) - mean(post$betaW) * mean(d$wild_spawners) -mean(post$betaH)*(mean(d$total_spawners) - mean(d$wild_spawners)) + mean(post$b1) * smolt_age3_surv + mean(post$b2) * aug_flow + mean(post$b3) * fall_flood + mean(post$b4) * ice_days + mean(post$b5) * aug_flow_rear 
   RS <- exp(logRS)
-  R <- RS * spawners
+  R <- RS * mean(d$total_spawners)
   return(c(RS, R))}
 
 # predict productivity at mean and 50% below mean rearing flows
@@ -488,21 +479,32 @@ predict_RS(var1 = "aug_flow_rear",
                  spawners = mean(d$total_spawners))
 
 # add poor ocean survival (25% quantile)
-predict_RS(smolt_age3_surv=quantile(d$smolt_age3_survival, 0.25),
+predict_recruits(smolt_age3_surv=quantile(d$smolt_age3_survival, 0.25),
                  aug_flow = faux_scale(5.66, scale_by=d_unscaled$aug_mean_flow_rear), 
                  aug_flow_rear= faux_scale(5.66, scale_by=d_unscaled$aug_mean_flow_rear), 
-                 ice_days = 0,
-                 spawners = mean(d$total_spawners))
+                 fall_flood=0,
+                 ice_days = 0)
+# 3 betas
+predict_recruits(smolt_age3_surv=0,
+                  aug_flow = 0, 
+                  aug_flow_rear= 0, 
+                  fall_flood=0,
+                  ice_days = 0)
+predict_recruits2(smolt_age3_surv=0,
+                 aug_flow = 0, 
+                 aug_flow_rear= 0, 
+                 fall_flood=0,
+                 ice_days = 0)
 
 # calculate difference in productivity for aug flow rearing effect in periods 1 and 4
 # predict productivity for mean flow from period 1
-pred1 <- predict_RS(smolt_age3_surv=0,
+pred1 <- predict_recruits(smolt_age3_surv=0,
                  aug_flow = 0, 
                  aug_flow_rear= faux_scale(flows_periods1_4[1], scale_by=d_unscaled$aug_mean_flow_rear), 
                  ice_days = 0,
                  spawners = mean(d$total_spawners))
 # predict productivity for mean flow from period 4
-pred2 <- predict_RS(smolt_age3_surv=0,
+pred2 <- predict_recruits(smolt_age3_surv=0,
                  aug_flow = 0, 
                  aug_flow_rear= faux_scale(flows_periods1_4[2], scale_by=d_unscaled$aug_mean_flow_rear), 
                  ice_days = 0,
@@ -511,13 +513,13 @@ pred2 <- predict_RS(smolt_age3_surv=0,
 (pred2 - pred1) / pred1
 
 # Calculate difference in productivity for aug flow spawning and rearing effect in periods 1 and 4
-pred1 <- predict_RS(smolt_age3_surv=0,
+pred1 <- predict_recruits(smolt_age3_surv=0,
                  aug_flow = faux_scale(flows_periods1_4[1], scale_by=d_unscaled$aug_mean_flow_rear), 
                  aug_flow_rear= faux_scale(flows_periods1_4[1], scale_by=d_unscaled$aug_mean_flow_rear), 
                  ice_days = 0,
                  spawners = mean(d$total_spawners))
 # predict productivity for mean flow from period 4
-pred2 <- predict_RS(smolt_age3_surv=0,
+pred2 <- predict_recruits(smolt_age3_surv=0,
                  aug_flow = faux_scale(flows_periods1_4[2], scale_by=d_unscaled$aug_mean_flow_rear), 
                  aug_flow_rear= faux_scale(flows_periods1_4[2], scale_by=d_unscaled$aug_mean_flow_rear), 
                  ice_days = 0,
@@ -526,13 +528,13 @@ pred2 <- predict_RS(smolt_age3_surv=0,
 (pred2 - pred1) / pred1
 
 # Calculate difference in productivity for aug flow spawning effect in periods 1 and 4
-pred1 <- predict_RS(smolt_age3_surv=0,
+pred1 <- predict_recruits(smolt_age3_surv=0,
                  aug_flow = faux_scale(flows_periods1_4[1], scale_by=d_unscaled$aug_mean_flow_rear), 
                  aug_flow_rear= 0, 
                  ice_days = 0,
                  spawners = mean(d$total_spawners))
 # predict productivity for mean flow from period 4
-pred2 <-predict_RS(smolt_age3_surv=0,
+pred2 <-predict_recruits(smolt_age3_surv=0,
                  aug_flow = faux_scale(flows_periods1_4[2], scale_by=d_unscaled$aug_mean_flow_rear), 
                  aug_flow_rear= 0, 
                  ice_days = 0,
@@ -555,7 +557,7 @@ fig_effect_sizes <- mcmc_areas(post, pars=c("b5", "b4","b3", "b2", "b1"), prob=0
   scale_y_discrete(labels=c("Aug. flow rearing (b5)", "Ice days (b4)", "Max fall flood (b3)", "Aug. flow spawning (b2)", "Smolt to age 3 survival (b1)")) +
   theme_classic()
 fig_effect_sizes
-ggsave("./figures/fig_effect_sizes.png", fig_effect_sizes, width=6, height=6 )
+ggsave("./figures/fig_effect_sizes.png", fig_effect_sizes, width=5, height=3 )
 
 # plot effect sizes for paper: betas
 fig_effect_sizes_betas <- mcmc_areas(post, pars=c("beta_fix", "betaW_fix", "betaH_fix"), prob=0.8) + 
