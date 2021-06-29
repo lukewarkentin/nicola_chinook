@@ -18,7 +18,7 @@ library(tidyr)
 library(EflowStats)
 #devtools::install_github("rmcelreath/rethinking")
 library(rethinking)
-rstan_options(auto_write=TRUE)
+# rstan_options(auto_write=TRUE)
 
 rm(list=ls())
 
@@ -408,7 +408,7 @@ faux_scale <- function(x, scale_by) {
 # faux_scale(x=quantile(d_unscaled$smolt_age3_survival, 0.25), scale_by=d_unscaled$smolt_age3_survival)
 
 # write function to predict recruits for one or two environmental values, with 90% CI
-predict_recruits <- function(spawners, var1, var1_value, var2, var2_value) { 
+predict_RS <- function(spawners, var1, var1_value, var2, var2_value) { 
   # table 
   par_key <- data.frame(var = c("smolt_age3_surv", "aug_flow_spawn", "fall_flood", "ice_days", "aug_flow_rear"), par = c("b1", "b2", "b3", "b4", "b5"))
   par1_use <- par_key$par[par_key$var==var1]
@@ -429,7 +429,7 @@ predict_recruits <- function(spawners, var1, var1_value, var2, var2_value) {
 }
 
 # write function to calculate % change in recruits for two different environmental values, with 90% CI
-perc_change_recruits <- function(spawners, var_change, value1, value2) { 
+perc_change_RS <- function(spawners, var_change, value1, value2) { 
   # table 
   par_key <- data.frame(var = c("smolt_age3_surv", "aug_flow_spawn", "fall_flood", "ice_days", "aug_flow_rear"), par = c("b1", "b2", "b3", "b4", "b5"))
   par_use <- par_key$par[par_key$var==var_change]
@@ -447,58 +447,62 @@ perc_change_recruits <- function(spawners, var_change, value1, value2) {
   #(logRS_f - logRS_i)/logRS_i
 }
 
+# write function to calculate recruits from each run of the model for a series of flows (one beta)
+predict_recruits <- function(smolt_age3_surv, aug_flow, aug_flow_rear, ice_days, spawners) {
+  logRS <- log(mean(post$alpha)) - mean(post$beta_fix) * mean(d$total_spawners) + mean(post$b1) * smolt_age3_surv + mean(post$b2) * aug_flow + mean(post$b3) * fall_flood + mean(post$b4) * ice_days + mean(post$b5) * aug_flow_rear 
+  RS <- exp(logRS)
+  R <- RS * spawners
+  return(c(RS, R))}
 
-
-# predict recruits at mean and 50% below mean rearing flows
-perc_change_recruits(spawners=mean(d$total_spawners), var_change="aug_flow_rear", 
+# predict productivity at mean and 50% below mean rearing flows
+perc_change_RS(spawners=mean(d$total_spawners), var_change="aug_flow_rear", 
                      value1 = 0,
                      value2 = faux_scale( mean(d_unscaled$aug_mean_flow_rear) - 0.5 * mean(d_unscaled$aug_mean_flow_rear), d_unscaled$aug_mean_flow_rear))
 
 
-# Calculate change in recruitment for spawning flows 50% of average
-perc_change_recruits(spawners=mean(d$total_spawners), var_change="aug_flow_spawn", 
+# Calculate change in productivity for spawning flows 50% of average
+perc_change_RS(spawners=mean(d$total_spawners), var_change="aug_flow_spawn", 
                      value1 = 0,
                      value2 = faux_scale( mean(d_unscaled$aug_mean_flow) - 0.5 * mean(d_unscaled$aug_mean_flow), d_unscaled$aug_mean_flow))
 
 
-# Calculate change in recruitment for rearing and spawning flows 50% of average
-pred1 <- predict_recruits(spawners=mean(d$total_spawners), var1 = "aug_flow_rear", 
+# Calculate change in productivity for rearing and spawning flows 50% of average
+pred1 <- predict_RS(spawners=mean(d$total_spawners), var1 = "aug_flow_rear", 
                           var1_value = 0,
                           var2="aug_flow_spawn", 
                           var2_value =0)
 
-# predict recruits at lower rearing flows
-pred2 <- predict_recruits(spawners=mean(d$total_spawners), var1 = "aug_flow_rear", 
+# predict productivity at lower rearing flows
+pred2 <- predict_RS(spawners=mean(d$total_spawners), var1 = "aug_flow_rear", 
                           var1_value = faux_scale( mean(d_unscaled$aug_mean_flow_rear) - 0.5 * mean(d_unscaled$aug_mean_flow_rear), d_unscaled$aug_mean_flow_rear),
                           var2="aug_flow_spawn", 
                           var2_value =faux_scale( mean(d_unscaled$aug_mean_flow) - 0.5 * mean(d_unscaled$aug_mean_flow), d_unscaled$aug_mean_flow))
-# calculate percent chage
+# calculate percent change
 (pred2 - pred1) / pred1
 
-# predict recruits if flows were at kosakoski and hamilton levels for spawning and rearing
-kh_recruits <- predict_recruits(var1 = "aug_flow_rear", 
+# predict productivity if flows were at kosakoski and hamilton levels for spawning and rearing
+predict_RS(var1 = "aug_flow_rear", 
                  var1_value  = faux_scale(5.66, scale_by=d_unscaled$aug_mean_flow_rear), 
                  var2 = "aug_flow_spawn",
                  var2_value = faux_scale(5.66, scale_by=d_unscaled$aug_mean_flow), 
                  spawners = mean(d$total_spawners))
-kh_recruits/mean(d$total_spawners)
 
 # add poor ocean survival (25% quantile)
-predict_recruits(smolt_age3_surv=quantile(d$smolt_age3_survival, 0.25),
+predict_RS(smolt_age3_surv=quantile(d$smolt_age3_survival, 0.25),
                  aug_flow = faux_scale(5.66, scale_by=d_unscaled$aug_mean_flow_rear), 
                  aug_flow_rear= faux_scale(5.66, scale_by=d_unscaled$aug_mean_flow_rear), 
                  ice_days = 0,
                  spawners = mean(d$total_spawners))
 
-# calculate difference in recruits for aug flow rearing effect in periods 1 and 4
-# predict recruits for mean flow from period 1
-pred1 <- predict_recruits(smolt_age3_surv=0,
+# calculate difference in productivity for aug flow rearing effect in periods 1 and 4
+# predict productivity for mean flow from period 1
+pred1 <- predict_RS(smolt_age3_surv=0,
                  aug_flow = 0, 
                  aug_flow_rear= faux_scale(flows_periods1_4[1], scale_by=d_unscaled$aug_mean_flow_rear), 
                  ice_days = 0,
                  spawners = mean(d$total_spawners))
-# predict recruits for mean flow from period 4
-pred2 <- predict_recruits(smolt_age3_surv=0,
+# predict productivity for mean flow from period 4
+pred2 <- predict_RS(smolt_age3_surv=0,
                  aug_flow = 0, 
                  aug_flow_rear= faux_scale(flows_periods1_4[2], scale_by=d_unscaled$aug_mean_flow_rear), 
                  ice_days = 0,
@@ -506,14 +510,14 @@ pred2 <- predict_recruits(smolt_age3_surv=0,
 # calculate percent chage
 (pred2 - pred1) / pred1
 
-# Calculate difference in recruits for aug flow spawning and rearing effect in periods 1 and 4
-pred1 <- predict_recruits(smolt_age3_surv=0,
+# Calculate difference in productivity for aug flow spawning and rearing effect in periods 1 and 4
+pred1 <- predict_RS(smolt_age3_surv=0,
                  aug_flow = faux_scale(flows_periods1_4[1], scale_by=d_unscaled$aug_mean_flow_rear), 
                  aug_flow_rear= faux_scale(flows_periods1_4[1], scale_by=d_unscaled$aug_mean_flow_rear), 
                  ice_days = 0,
                  spawners = mean(d$total_spawners))
-# predict recruits for mean flow from period 4
-pred2 <- predict_recruits(smolt_age3_surv=0,
+# predict productivity for mean flow from period 4
+pred2 <- predict_RS(smolt_age3_surv=0,
                  aug_flow = faux_scale(flows_periods1_4[2], scale_by=d_unscaled$aug_mean_flow_rear), 
                  aug_flow_rear= faux_scale(flows_periods1_4[2], scale_by=d_unscaled$aug_mean_flow_rear), 
                  ice_days = 0,
@@ -521,14 +525,14 @@ pred2 <- predict_recruits(smolt_age3_surv=0,
 # calculate percent chage
 (pred2 - pred1) / pred1
 
-# Calculate difference in recruits for aug flow spawning effect in periods 1 and 4
-pred1 <- predict_recruits(smolt_age3_surv=0,
+# Calculate difference in productivity for aug flow spawning effect in periods 1 and 4
+pred1 <- predict_RS(smolt_age3_surv=0,
                  aug_flow = faux_scale(flows_periods1_4[1], scale_by=d_unscaled$aug_mean_flow_rear), 
                  aug_flow_rear= 0, 
                  ice_days = 0,
                  spawners = mean(d$total_spawners))
-# predict recruits for mean flow from period 4
-pred2 <-predict_recruits(smolt_age3_surv=0,
+# predict productivity for mean flow from period 4
+pred2 <-predict_RS(smolt_age3_surv=0,
                  aug_flow = faux_scale(flows_periods1_4[2], scale_by=d_unscaled$aug_mean_flow_rear), 
                  aug_flow_rear= 0, 
                  ice_days = 0,
@@ -536,15 +540,15 @@ pred2 <-predict_recruits(smolt_age3_surv=0,
 # calculate percent chage
 (pred2 - pred1) / pred1
 
-# Calculate difference in recruitment for ice days effect
-perc_change_recruits(spawners=mean(d$total_spawners), var_change="ice_days", 
+# Calculate difference in productivity for ice days effect
+perc_change_RS(spawners=mean(d$total_spawners), var_change="ice_days", 
                      value1 = 0,
                      value2 = faux_scale(mean(d_unscaled$ice_days) + 10, d_unscaled$ice_days))
 
 
 
 # Plot effect sizes for paper: covariates - Publication Figure 1 -------
-fig_effect_sizes <- mcmc_areas(post, pars=c("b5", "b4","b3", "b2", "b1"), prob=0.8) + 
+fig_effect_sizes <- mcmc_areas(post, pars=c("b5", "b4","b3", "b2", "b1"), prob=0.9) + 
   xlab(expression("Effect on log"[e]*"(Recruits/Spawner)")) +
   ylab("Parameter") +
   geom_vline(aes(xintercept=0)) +
