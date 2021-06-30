@@ -350,7 +350,8 @@ ST <- mean(d$total_spawners)
 prop_wild <- mean(d$wild_spawners/d$total_spawners)
 # scale wild and hatchery spawners using proportion wild, because it will have to scale to different values of x on the plot
 predicted_ricker <- d$total_spawners*mean(post$alpha)*exp(-mean(post$beta)*d$total_spawners - mean(post$betaW)*d$total_spawners*prop_wild -mean(post$betaH)*d$total_spawners*(1-prop_wild)) # get predicted mean spawners
-
+resids <- d$wild_recruits - predicted_ricker
+data.frame(resids, d_unscaled$aug_mean_flow_rear)
 png(filename = "./figures/fig_resid_ricker_plots.png", width=8, height=8, units="in", res=300, pointsize=17)
 layout(matrix(c(1,2,3,4,5,6), ncol=2, nrow=3, byrow=TRUE))
 par(mar=c(4,4,0.5,0.1), bty="L")
