@@ -18,17 +18,17 @@ rstan_options(auto_write=TRUE)
 rm(list=ls())
 
 # Data -------------
-brood <- read.csv("./data/nicola_brood_table.csv") # read in cohort data table with hatchery data
+brood <- read.csv("./data_out/nicola_brood_table.csv") # read in cohort data table with hatchery data
 # manipulate to get recruits
 #spawners <- brood %>% group_by(run_year) %>% summarise(total_spawners=sum(total_spawners), wild_spawners=sum(true_wild_spawners))
 recruits <- brood %>% group_by(brood_year) %>% summarise(wild_recruits=sum(recruits))
 
 # read in spawner data 
-spawners <- read.csv("./data/spawners_1995-2018.csv")
+spawners <- read.csv("./data_out/spawners_1995-2018.csv")
 
 sd <- merge(recruits, spawners, by.x="brood_year", by.y="run_year", all=TRUE)
 # write csv to send to Chuck Parken
-write.csv(sd, "./data/spawners_recruits_unclipped_hatchery_adjusted_LukeWarkentin.csv", row.names=FALSE)
+write.csv(sd, "./data_out/spawners_recruits_unclipped_hatchery_adjusted_LukeWarkentin.csv", row.names=FALSE)
 
 # Read in calibrated peak count estimates (aerial counts? Check with Chuck Parken) from 1992 to 1994 with CV, and variance and CV for mark-recapture estimates from 1995-2018
 spawn_sup <- read_excel("./data/Nicola Calibrated Esc with Revised AFC and unclipped (1975-1994) for Luke.xlsx", trim_ws = TRUE, skip=1)
@@ -39,14 +39,14 @@ spawn_sup$clipped_spawners[is.na(spawn_sup$clipped_spawners)] <- 0
 spawn_sup$unclipped_spawners[is.na(spawn_sup$unclipped_spawners)] <- spawn_sup$total_spawners[is.na(spawn_sup$unclipped_spawners)]
 
 # Read in unmarked hatchery adults by year to correct spawners for 1992-1994
-uh <- read.csv("./data/unmarked_hatchery_returns_by_year.csv")
+uh <- read.csv("./data_out/unmarked_hatchery_returns_by_year.csv")
 # merge
 spawn_sup1 <- merge(spawn_sup, uh, by.x="spawning_year", by.y="run_year", all.x=TRUE)
 # make NA years 0
 spawn_sup1$unmarked_hatchery_returns_all_ages[is.na(spawn_sup1$unmarked_hatchery_returns_all_ages)] <- 0
-# subtract umarked adults from unclipped to get true wild spawners
+# subtract unmarked adults from unclipped to get true wild spawners
 spawn_sup1$wild_spawners <- round(spawn_sup1$unclipped_spawners - spawn_sup1$unmarked_hatchery_returns_all_ages, 0)
-# if les than 0, make it 0 for wild spawners
+# if less than 0, make it 0 for wild spawners
 spawn_sup1$wild_spawners <- ifelse(spawn_sup1$wild_spawners<0, 0, spawn_sup1$wild_spawners)
 # get hatchery spawners
 spawn_sup1$hatchery_spawners <- round(spawn_sup1$total_spawners- spawn_sup1$wild_spawners,0)
@@ -72,14 +72,22 @@ names(old_to_comb)[grep("spawning_year", names(old_to_comb))] <- "brood_year"
 
 # bind rows of old spawner data with new spawner data
 full_spawn <- rbind(old_to_comb, sd[sd$brood_year>=1995,])
+
+# merge with unmarked hatchery fish by run year to summarise for supplemental
+uhs <- merge(full_spawn, uh, by.x="brood_year", by.y="run_year")
+uhs <- uhs[uhs$brood_year>=1992 & uhs$brood_year<=2013, ]
+uhs$ratio = round( uhs$unmarked_hatchery_returns_all_ages / uhs$wild_spawners, 2)
+write.csv(uhs, "data_out/summary_ratio_unmarked_hatchery_to_est_wild.csv", row.names = FALSE)
+mean(uhs$ratio)
+
 # write csv, for graphing full time series
-write.csv(full_spawn, "./data/full_spawner_time_series.csv", row.names=FALSE)
+write.csv(full_spawn, "./data_out/full_spawner_time_series.csv", row.names=FALSE)
 
 # add recruits per spawner variable
 sd$recruits_per_spawner <- sd$wild_recruits / sd$total_spawners
 
 # Read in flow data --------
-fd <- read.csv("./data/nicola_yearly_flows_all_months.csv") # read in flow data 
+fd <- read.csv("./data_out/nicola_yearly_flows_all_months.csv") # read in flow data 
 # subset of flow data columns to keep
 pars_keep <- c("year", "aug_mean_flow", "ice_days", "sep_dec_max_flow", "aug_mean_flow_rear")
 fd <- fd[,names(fd) %in% pars_keep]
@@ -102,18 +110,18 @@ names(d)[8]
 d[ ,8:ncol(d)] <- as.numeric(scale(d[ ,8:ncol(d)])) # centre and standardize all predictor variables
 
 # save data to use in model to csv
-write.csv(d, "./data/model_data.csv")
-write.csv(d_unscaled, "./data/model_data_unscaled.csv")
+write.csv(d, "./data_out/model_data.csv")
+write.csv(d_unscaled, "./data_out/model_data_unscaled.csv")
 
 # save data for DRYAD repository
-write.csv(d_unscaled[c(1:5,7,15,22,23, 31,40)], "./data/DRYAD_upload_stock_recruit_model_data_unscaled.csv", row.names = FALSE)
+write.csv(d_unscaled, "./data_out/DRYAD_upload_stock_recruit_model_data_unscaled.csv", row.names = FALSE)
 
 # # Visual checks
 
 # Check Correlation between covariates
 # make vector of predictor variables to check correlation
 names(d_unscaled)
-pred_plot <- names(d_unscaled)[c(15,22,23,31, 40)]
+pred_plot <- names(d_unscaled)[8:12]
 pred_plot
 png("./figures/fig_correlation_predictors.png", height=800, width=1200, pointsize=30)
 plot(d_unscaled[ , pred_plot])

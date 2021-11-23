@@ -23,9 +23,9 @@ library(rethinking)
 rm(list=ls())
 
 # read in data used in model
-d <- read.csv("./data/model_data.csv")
+d <- read.csv("./data_out/model_data.csv")
 # read in unscaled data 
-d_unscaled <- read.csv("./data/model_data_unscaled.csv")
+d_unscaled <- read.csv("./data_out/model_data_unscaled.csv")
 # read in data frame of posterior samples of model parameters
 #post <- read.csv("./data/posterior_samples.csv")
 # read in data frame of posterior samples of model parameters from model stacking
@@ -611,7 +611,7 @@ fdf %>% filter(month==8) %>%
   xlab("Year") +
   scale_x_continuous(breaks=x_brks_2, labels=x_brks_2, limits=c(min(x_brks)-1, max(x_brks)+1), expand=c(0,0), minor_breaks=x_brks_2) +
   theme_bw() +
-  geom_hline(aes(yintercept=0.15*mad), linetype=2, stroke=1.2, colour="orange") +
+  #geom_hline(aes(yintercept=0.15*mad), linetype=2, stroke=1.2, colour="orange") +
   geom_hline(aes(yintercept=0))+
   coord_cartesian(expand=FALSE)+
   theme(axis.text.x = element_text(angle=90, vjust=0.5),

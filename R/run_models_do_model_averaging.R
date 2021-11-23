@@ -11,7 +11,7 @@ rstan_options(auto_write=TRUE)
 options(mc.cores = parallel::detectCores())
 
 # Read in data
-d <- read.csv("./data/model_data.csv")
+d <- read.csv("./data_out/model_data.csv")
 # Optional: run without first year on record, which had very low smolt to age 3 survival
 # d <- d[!d$brood_year==1992, ]
  
@@ -676,6 +676,7 @@ text(x=rsqs, y= 1:length(rsqs)+0.4, label=round(rsqs,2), cex=0.7)
 dev.off()
 
 # Compare stability of posterior estimates across models -----------
+# have to have models for this
 # Compare parameter estimates - environmental variable effect estimates
 pars_plot <- c("b1", "b2", "b3", "b4", "b5")
 png("./figures/fig_parameter_estimates_model_compare.png", width=300, height=1300, pointsize = 12)
@@ -705,31 +706,31 @@ cc_h <- log(mod_sum_8[1,1])/mod_sum_8[3,1]
 cc_h / cc_w
 cc_w * 0.542
 
-# Optional:
-# Compare with WAIC---------
-
-waic_tab <- rethinking::compare(fit_ricker_0, fit_ricker_1, fit_ricker_2, fit_ricker_3, fit_ricker_4, fit_ricker_5, 
-                                fit_ricker_6, fit_ricker_7, fit_ricker_8, fit_ricker_9, fit_ricker_10, fit_ricker_11, 
-                                fit_ricker_0b, fit_ricker_1b, fit_ricker_2b, fit_ricker_3b, fit_ricker_4b, fit_ricker_5b,
-                                fit_ricker_6b, fit_ricker_7b, fit_ricker_8b, fit_ricker_9b, fit_ricker_10b, fit_ricker_11b)
-# Plot WAIC fig
-png("./figures/fig_WAIC_model_compare.png", pointsize=20, width=500, height=1000)
-plot(waic_tab, SE=TRUE, dSE=TRUE)
-dev.off()
-
-# Save WAIC table
-waic <- waic_tab
-# fix row names
-row.names(waic) <- sub("fit_ricker_", "Model ", row.names(waic))
-#waic$`Cumulative weight` <- cumsum(waic$weight) # add cumulative weight column
-# save WAIC table
-#write.csv(round(waic,2), "data_out/WAIC_table.csv")
-
-# Combine WAIC, LOO and R2 tables to print----------
-comp <- merge(waic, lootab, by="row.names")
-comp1 <- merge(comp, r_df, by.x="Row.names", by.y="model")
-comp1[,-1] <- signif(comp1[,-1], 3) # round all numeric values to 3 significant figures
-#write.csv(comp1[order(comp1$WAIC),], "data_out/model_comparison_master.csv")
+# # Optional:
+# # Compare with WAIC---------
+# 
+# waic_tab <- rethinking::compare(fit_ricker_0, fit_ricker_1, fit_ricker_2, fit_ricker_3, fit_ricker_4, fit_ricker_5, 
+#                                 fit_ricker_6, fit_ricker_7, fit_ricker_8, fit_ricker_9, fit_ricker_10, fit_ricker_11, 
+#                                 fit_ricker_0b, fit_ricker_1b, fit_ricker_2b, fit_ricker_3b, fit_ricker_4b, fit_ricker_5b,
+#                                 fit_ricker_6b, fit_ricker_7b, fit_ricker_8b, fit_ricker_9b, fit_ricker_10b, fit_ricker_11b)
+# # Plot WAIC fig
+# png("./figures/fig_WAIC_model_compare.png", pointsize=20, width=500, height=1000)
+# plot(waic_tab, SE=TRUE, dSE=TRUE)
+# dev.off()
+# 
+# # Save WAIC table
+# waic <- waic_tab
+# # fix row names
+# row.names(waic) <- sub("fit_ricker_", "Model ", row.names(waic))
+# #waic$`Cumulative weight` <- cumsum(waic$weight) # add cumulative weight column
+# # save WAIC table
+# #write.csv(round(waic,2), "data_out/WAIC_table.csv")
+# 
+# # Combine WAIC, LOO and R2 tables to print----------
+# comp <- merge(waic, lootab, by="row.names")
+# comp1 <- merge(comp, r_df, by.x="Row.names", by.y="model")
+# comp1[,-1] <- signif(comp1[,-1], 3) # round all numeric values to 3 significant figures
+# #write.csv(comp1[order(comp1$WAIC),], "data_out/model_comparison_master.csv")
 
 # OBSOLETE: AUTOCORRELATION
 # inits_AR= rep(

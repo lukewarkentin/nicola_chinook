@@ -20,4 +20,4 @@ stns_dl <- c(1020, # Merritt
 wdd <- weather_dl(stns_dl, interval="day") # get daily data
 str(wdd)
 
-write.csv(wdd, "./data/weather_data.csv", row.names = FALSE) # write weather data to csv
+write.csv(wdd, "./data_out/weather_data.csv", row.names = FALSE) # write weather data to csv

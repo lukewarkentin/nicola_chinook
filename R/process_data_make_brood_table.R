@@ -257,7 +257,7 @@ return_index_factors$return_index_factor[return_index_factors$return_index_facto
 return_index_factors <- return_index_factors %>% group_by(factor_release_stages, return_age) %>% summarise(mean_return_index_factor= mean(return_index_factor, na.rm=TRUE)) %>% as.data.frame(.)
 
 # Expand return index for different release stage by return index factors for case 2
-# number untagged unclipped * return index factor for that converstion * return index for other release stage in same year
+# number untagged unclipped * return index factor for that conversion * return index for other release stage in same year
 # New column to fill in
 master2$unmarked_returns2 <- 0
 # fill in column with for loop
@@ -371,13 +371,13 @@ str(unmarked)
 
 unmarked_totals <- unmarked %>% group_by(brood_year, return_age) %>% summarise(unmarked_hatchery_returns= sum(unmarked_returns1, unmarked_returns2, unmarked_returns3, na.rm=TRUE))
 
-# make a data frame summarized by run year to use for 1992-1994 to correct for unmarked hatchery adults ( we don't have age-specific escapement data for these years)
-unmarked_total_sum <- unmarked_totals 
-unmarked_total_sum$run_year <- unmarked_total_sum$brood_year + unmarked_total_sum$return_age
-unmarked_total_sum1 <- unmarked_total_sum %>% group_by(run_year) %>% summarise(unmarked_hatchery_returns_all_ages = sum(unmarked_hatchery_returns))
+# # make a data frame summarized by run year to use for 1992-1994 to correct for unmarked hatchery adults ( we don't have age-specific escapement data for these years)
+# unmarked_total_sum <- unmarked_totals 
+# unmarked_total_sum$run_year <- unmarked_total_sum$brood_year + unmarked_total_sum$return_age
+# unmarked_total_sum1 <- unmarked_total_sum %>% group_by(run_year) %>% summarise(unmarked_hatchery_returns_all_ages = sum(unmarked_hatchery_returns))
 
 # save a csv 
-write.csv(unmarked_total_sum1, "./data/unmarked_hatchery_returns_by_year.csv", row.names=FALSE)
+write.csv(unmarked_total_sum1, "./data_out/unmarked_hatchery_returns_by_year.csv", row.names=FALSE)
 
 # Read in brood table of escapement ----------  CHECK THAT THIS WORKS WITH LATEST DATA
 escapement <- read_excel("./data/Nicola (1995-2018) RiverSpawnerplusHatcheryEscbyAge and Clip status Nov 5 2019.xlsx", sheet=2, skip=2 )
@@ -392,7 +392,11 @@ escapement1$wild_escapement <- escapement1$Corrected_Unclipped_Nicola_Escapement
    escapement1$wild_escapement[i] <-ifelse(escapement1$wild_escapement[i]>=0,
                                                    escapement1$wild_escapement[i],
                                                    0)
-}
+ }
+
+# # Make table that has more info for supplemental
+# escape_sum <- escapement1 %>% group_by(run_year) %>% summarise_at(.vars=c("unmarked_hatchery_returns", "wild_escapement"), .funs=sum, na.rm=TRUE)
+# escape_sum$ratio = round(escape_sum$unmarked_hatchery_returns/escape_sum$wild_escapement,2)
 
 # Get total spawners (wild + hatchery) for each run year
 escapement1$total_spawners <- escapement1$Corrected_Unclipped_River_Spawners + escapement1$Clipped_River_Spawners
@@ -406,11 +410,12 @@ escapement1$true_wild_spawners <- round(escapement1$Corrected_Unclipped_River_Sp
 # Get true hatchery spawners
 escapement1$true_hatchery_spawners <- escapement1$total_spawners - escapement1$true_wild_spawners
 
+
 # make summary of spawner data (which will have more years than recruitment, which will be limited by exploitation + years without full age returns)
 spawners_sum <- escapement1 %>% group_by(run_year) %>% summarise_at(.vars=c("total_spawners", "true_wild_spawners", "true_hatchery_spawners"), .funs=sum, na.rm=TRUE)
 names(spawners_sum) <- sub("true_", "", names(spawners_sum))
 # write to csv
-write.csv(spawners_sum, "./data/spawners_1995-2018.csv", row.names=FALSE)
+write.csv(spawners_sum, "./data_out/spawners_1995-2018.csv", row.names=FALSE)
 
 # visual check
 plot(escapement1$Corrected_Unclipped_Nicola_Escapement)
@@ -533,7 +538,7 @@ ggplot(escapement2, aes(y=recruits, x=brood_year)) +
   theme(axis.text.x = element_text(angle=90, vjust=0.5)) 
 
 # Write csv of brood table 
-write.csv(escapement2[,c("return_age", "run_year", "brood_year", "recruits", "total_spawners", "true_wild_spawners", "true_hatchery_spawners")], "./data/nicola_brood_table.csv", row.names=FALSE)
+write.csv(escapement2[,c("return_age", "run_year", "brood_year", "recruits", "total_spawners", "true_wild_spawners", "true_hatchery_spawners")], "./data_out/nicola_brood_table.csv", row.names=FALSE)
 
 ################################
 ############# FIGURES ##########

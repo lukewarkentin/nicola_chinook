@@ -7,7 +7,7 @@ library(zoo)
 
 # Weather data
 
-wd <- read.csv("./data/weather_data.csv")
+wd <- read.csv("./data_out/weather_data.csv")
 wd$date <- ymd(wd$date)
 wd$month <- month(wd$date, abbr=TRUE, label=TRUE)
 unique(wd$station_name)
@@ -65,7 +65,7 @@ fdyt <- fdy %>% group_by(year) %>% summarise(total_yield = sum(Value* 86400)) # 
 
 # spawner data
 # read in full time series of spawning data
-sp <- read.csv("./data/full_spawner_time_series.csv")
+sp <- read.csv("./data_out/full_spawner_time_series.csv")
 
 # get year range for each data set
 range(wd$date)

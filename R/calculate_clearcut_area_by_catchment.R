@@ -56,7 +56,7 @@ sdat <- dat %>% filter(HARVEST_YEAR > 2000) %>% group_by(GNIS_NAME, STREAM_ORD, 
 sdat$percent_cut_since_2000 <- sdat$clearcut_area_ha / sdat$AREA_HA
 head(sdat)
 
-write.csv(sdat, "./data/percent_clearcut_since_2000_subcatchments.csv", row.names = FALSE)
+write.csv(sdat, "./data_out/percent_clearcut_since_2000_subcatchments.csv", row.names = FALSE)
 
 # summarise area cut by year
 ysdat <- dat %>% group_by(HARVEST_YEAR, GNIS_NAME, STREAM_ORD, AREA_HA, major_trib) %>% summarise(clearcut_area_ha = sum(areaCut_ha, na.rm=TRUE))
