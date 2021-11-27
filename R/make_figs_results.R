@@ -494,6 +494,7 @@ predict_RS <- function(spawners, var1, var1_value, var2, var2_value) {
   return( RS_i) # recruits/spawner
 }
 
+
 # predict productivity at mean and 50% below mean rearing flows
 perc_change_RS(spawners=mean(d$total_spawners), var_change="aug_flow_rear", 
                      value1 = 0,
