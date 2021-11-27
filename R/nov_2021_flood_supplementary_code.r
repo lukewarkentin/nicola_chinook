@@ -67,7 +67,7 @@ max(d_unscaled$sep_dec_max_flow)
 mean(d_unscaled$aug_mean_flow)
 
 # get recruits for average flood
-avg_flood <- get_recruits(alpha=post$alpha, beta_t = post$beta, beta_w = post$betaW, beta_h=post$betaH,
+avg_flood_1992_2013 <- get_recruits(alpha=post$alpha, beta_t = post$beta, beta_w = post$betaW, beta_h=post$betaH,
              b1 = post$b1, b2 = post$b2, b3 = post$b3, b4=post$b4, b5=post$b5,
              # Data from Chuck Parken 2021-11-26
              # total spawners (rough) = 4,000 with 439 natural and 3,561 hatchery. 
@@ -138,5 +138,14 @@ est_nov21_flood_762cms <- get_recruits(alpha=post$alpha, beta_t = post$beta, bet
              rearflow = 0 # use mean of data used to fit model, essentially removes effect
 )  
 
-comp <- bind_rows(avg_flood, max_flood_1992_2013, est_nov21_flood_367cms, est_nov21_flood_762cms)
-comp$scenario <- c("avg_flood", "max_flood_1992_2013", "est_nov21_flood_367cms","est_nov21_flood_762cms")
+comp <- bind_rows(avg_flood_1992_2013, max_flood_1992_2013, est_nov21_flood_367cms, est_nov21_flood_762cms)
+comp$scenario <- c("avg_flood_1992_2013", "max_flood_1992_2013", "est_nov21_flood_367cms","est_nov21_flood_762cms")
+
+write.csv(comp, "data_out/recruits_scenarios_nov2021_flood_impacts.csv", row.names = FALSE)
+
+
+plot(x=d_unscaled$sep_dec_max_flow, y=log(d$wild_recruits/d$total_spawners), ylab="log(R/S)", xlab="Max Sep-Dec flow (cms)", xlim=c(0,800)) 
+points(x=762, y=log(est_nov21_flood_762cms[2]/4000), col="red")
+
+plot(x=d_unscaled$sep_dec_max_flow, y=d$wild_recruits, ylab="Recruits", xlab="Max Sep-Dec flow (cms)", xlim=c(0,800)) 
+points(x=762, y=est_nov21_flood_762cms[2], col="red")
