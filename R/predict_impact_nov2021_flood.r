@@ -31,7 +31,7 @@ get_recruits <- function(alpha, beta_t, beta_w, beta_h, b1, b2, b3, b4, b5,
           beta_h * hatchery_spawners   + b1 * smoltsurv + b2 * spawnflow + 
           b3 * flood + b4 * ice + b5 * rearflow
   R = exp(logRS) * total_spawners
-  estR <- quantile(R, probs=c(0.05, 0.5, 0.95))
+  estR <- quantile(R, probs=c(0.025, 0.5, 0.975))
   estR
 }
 
@@ -45,7 +45,7 @@ faux_scale <- function(x, scale_by) {
 #lines(density(post$beta_fix), col="green")
 
 # get flow data
-# UNapproved data downloaded from WSC website Nov 26, 2021 https://wateroffice.ec.gc.ca/download/index_e.html?results_type=real_time
+# Unapproved data downloaded from WSC website Nov 26, 2021 https://wateroffice.ec.gc.ca/download/index_e.html?results_type=real_time
 fd <- read.csv("data/nicola_unapproved_flow_2021.csv", skip=10)
 names(fd) <- c("date_time", "param_code", "flow_cms")
 class(fd$date_time)
@@ -109,6 +109,9 @@ est_nov21_flood_762cms <- get_recruits(alpha=post$alpha, beta_t = post$beta, bet
 
 comp <- bind_rows(avg_flood_1992_2013, max_flood_1992_2013, est_nov21_flood_367cms, est_nov21_flood_762cms)
 comp$scenario <- c("avg_flood_1992_2013", "max_flood_1992_2013", "est_nov21_flood_367cms","est_nov21_flood_762cms")
+
+# Add percent change column
+comp$perc_change_rel <- (comp$`50%` - comp$`50%`[1] ) / comp$`50%`[1] * 100
 
 write.csv(comp, "data_out/recruits_scenarios_nov2021_flood_impacts.csv", row.names = FALSE)
 
