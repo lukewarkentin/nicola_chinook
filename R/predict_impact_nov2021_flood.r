@@ -30,8 +30,8 @@ get_recruits <- function(alpha, beta_t, beta_w, beta_h, b1, b2, b3, b4, b5,
   logRS = log(alpha) - beta_t * total_spawners - beta_w * wild_spawners - 
           beta_h * hatchery_spawners   + b1 * smoltsurv + b2 * spawnflow + 
           b3 * flood + b4 * ice + b5 * rearflow
-  R = exp(logRS) * total_spawners
-  estR <- quantile(R, probs=c(0.025, 0.5, 0.975))
+  R = exp(logRS) * total_spawners # get recruits from log(recruits/spawner)
+  estR <- quantile(R, probs=c(0.025, 0.5, 0.975)) # get 95% credible interval of predictions
   estR
 }
 
@@ -53,9 +53,10 @@ fd$date_time <- ymd_hms(fd$date_time)
 fd$date <- date(fd$date_time)
 fdm <- fd %>% group_by(date) %>% summarise(mean_flow = mean(flow_cms))
 fdm$month <- month(fdm$date)
-augflowspawn <- mean(fdm$mean_flow[fdm$month==8])
+augflowspawn <- mean(fdm$mean_flow[fdm$month==8]) # get mean august flow for 2021
 
 # get recruits for average flood
+mean(d_unscaled$sep_dec_max_flow)
 avg_flood_1992_2013 <- get_recruits(alpha=post$alpha, beta_t = post$beta, beta_w = post$betaW, beta_h=post$betaH,
              b1 = post$b1, b2 = post$b2, b3 = post$b3, b4=post$b4, b5=post$b5,
              total_spawners = total_spawners, wild_spawners = wild_spawners, hatchery_spawners = hatchery_spawners,
@@ -69,6 +70,7 @@ avg_flood_1992_2013 <- get_recruits(alpha=post$alpha, beta_t = post$beta, beta_w
 )  
 
 # get recruits for max observed fall flood from data set used to fit model
+max(d_unscaled$sep_dec_max_flow)
 max_flood_1992_2013 <- get_recruits(alpha=post$alpha, beta_t = post$beta, beta_w = post$betaW, beta_h=post$betaH,
              b1 = post$b1, b2 = post$b2, b3 = post$b3, b4=post$b4, b5=post$b5,
              total_spawners = total_spawners, wild_spawners = wild_spawners, hatchery_spawners = hatchery_spawners,
