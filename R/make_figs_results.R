@@ -734,6 +734,18 @@ range(fd_change$dif4_2)
 range(fd_change$dif4_1, na.rm=TRUE)
 
 
+# Check that beta fix terms make sense - Yes, fixed values are the ones to use if 
+#   modelling with either a model with just beta_t, or a model with beta_wild + beta_hatchery
+pe <- read.csv("data_out/parameter_estimates_summary_stacked.csv")
+a <- pe$Mean[pe$param=="alpha"]
+b_t <- pe$Mean[pe$param=="beta"]
+b_t_fix <- pe$Mean[pe$param=="beta_fix"]
+
+plot(x=d$total_spawners, y=d$wild_recruits)
+curve( a * x * exp(- b_t * x), add = TRUE)
+curve( a * x * exp(- b_t_fix * x), add = TRUE, col="blue")
+
+
 #### OBSOLETE ####
 
 # Plot for research summary for Nicola Basin Collaborative- Residuals of model formula without each covariate  -----------

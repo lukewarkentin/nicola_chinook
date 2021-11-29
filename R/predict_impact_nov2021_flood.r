@@ -30,7 +30,8 @@ post <- read.csv("data_out/model_stacking_posterior_samples.csv")
 options(scipen = 12) # adjust so estimates are in fixed notation
 
 # Write function to propagate uncertainty in all parameters to get recruits with different inputs 
-
+# Note, if we start adding more scenarios, probably best to make a data frame with 
+#  input values and names of scenarios, and adjust function to take values from that dataframe
 get_recruits <- function(alpha, beta_t, beta_w, beta_h, b1, b2, b3, b4, b5, 
                          total_spawners, wild_spawners, hatchery_spawners, 
                          smoltsurv, spawnflow, flood, ice,
