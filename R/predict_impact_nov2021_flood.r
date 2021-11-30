@@ -31,7 +31,7 @@ get_recruits <- function(alpha, beta_t, beta_w, beta_h, b1, b2, b3, b4, b5,
           beta_h * hatchery_spawners   + b1 * smoltsurv + b2 * spawnflow + 
           b3 * flood + b4 * ice + b5 * rearflow
   R = exp(logRS) * total_spawners # get recruits from log(recruits/spawner)
-  estR <- quantile(R, probs=c(0.025, 0.5, 0.975)) # get 95% credible interval of predictions
+  estR <- round ( quantile(R, probs=c(0.025, 0.5, 0.975)) , 0) # get 95% credible interval of predictions
   estR
 }
 
@@ -54,6 +54,11 @@ fd$date <- date(fd$date_time)
 fdm <- fd %>% group_by(date) %>% summarise(mean_flow = mean(flow_cms))
 fdm$month <- month(fdm$date)
 augflowspawn <- mean(fdm$mean_flow[fdm$month==8]) # get mean august flow for 2021
+
+meansu <- mean(d_unscaled$smolt_age3_survival)
+used <- 0.01999491
+
+(used - meansu) / meansu * 100
 
 # get recruits for average flood
 mean(d_unscaled$sep_dec_max_flow)
@@ -113,7 +118,7 @@ comp <- bind_rows(avg_flood_1992_2013, max_flood_1992_2013, est_nov21_flood_367c
 comp$scenario <- c("avg_flood_1992_2013", "max_flood_1992_2013", "est_nov21_flood_367cms","est_nov21_flood_762cms")
 
 # Add percent change column
-comp$perc_change_rel <- (comp$`50%` - comp$`50%`[1] ) / comp$`50%`[1] * 100
+comp$perc_change_rel <- round((comp$`50%` - comp$`50%`[1] ) / comp$`50%`[1] * 100, 0)
 
 write.csv(comp, "data_out/recruits_scenarios_nov2021_flood_impacts.csv", row.names = FALSE)
 
