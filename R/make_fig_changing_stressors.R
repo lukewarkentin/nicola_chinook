@@ -78,7 +78,7 @@ xlims <- c(min(year(wl2$Priority.Date))-2, 2020+2)
 xlims2 <- c(1955, 2020)
 
 # Figure 1 : Air temp, precip, water licenses, clearcuts-------
-png("./figures/fig_1_change_climate_land_water_use.png", width=4, height=8, units="in", res=300, pointsize=10)
+png("./figures/fig_1_change_climate_land_water_use.png", width=4, height=8, units="in", res=1000, pointsize=10)
 # Layout and formatting
 options(scipen=999) # turn off sci. notation
 layout(matrix(c(1:5,5), nrow=6, ncol=1, byrow = FALSE))

@@ -76,7 +76,7 @@ mn_ppd <- apply(ppd,2,mean) # get mean of predicted
 ci_ppd <- apply(ppd,2,rethinking::PI,prob=0.9) # get CI of predicted
 
 # Plot log(recruits/spawners) time series with predicted intervals
-png(filename="./figures/fig_predicted_logRS_time_series.png", width=1200, height=800, pointsize = 30)
+png(filename="./figures/fig_predicted_logRS_time_series.png", width=6, height=4, units="in", res=1000)
 par(mar=c(4,4,0,0) +0.1)
 plot(y=log(d$wild_recruits/d$total_spawners), x=d$brood_year, ylim=c(min(ci_pp_log_RS_stacked), max(ci_pp_log_RS_stacked)), xlab="Brood year", ylab=expression('log'[e]*'(Recruits/Spawner)'), las=1)
 lines(y=mn_pp_log_RS_stacked, x=d$brood_year, col="dodger blue")
@@ -99,7 +99,7 @@ dev.off()
 
 # Model fit --------
 # Plot predicted vs observed log(recruits/spawner) Publication Figure S3
-png(filename="./figures/fig_predicted~observed_log_RS.png", width=1200, height=800, pointsize = 30)
+png(filename="./figures/fig_predicted~observed_log_RS.png", width=1200, height=800, pointsize = 30, res=1000)
 par(mar=c(4,4,0,0) +0.1)
 plot(mn_pp_log_RS_stacked ~ log(d$wild_recruits/d$total_spawners), ylim=c(min(ci_pp_log_RS_stacked), max(ci_pp_log_RS_stacked)), xlab=expression('Observed log'[e]*'(Recruits/Spawner)'), ylab=expression('Predicted log'[e]*'(Recruits/Spawner)'))
 segments(x0= log(d$wild_recruits/d$total_spawners), y0=ci_pp_log_RS_stacked[1,], y1=ci_pp_log_RS_stacked[2,], lwd=1)
@@ -287,7 +287,7 @@ p4 <- cdf4(x)
 
 
 # Plot log(R/S) as a function of mean august flow with distribution of flows -- Publication Figure 2 ----------
-png(filename = "./figures/fig_logRS_flow.png", width=8, height=8, units="in", res=300, pointsize=20)
+png(filename = "./figures/fig_logRS_flow.png", width=8, height=8, units="in", res=1000, pointsize=20)
 
 layout(matrix(c(1,2,2), nrow=3, ncol=1, byrow = TRUE)) # layout for multi-panel plot
 
@@ -352,7 +352,7 @@ prop_wild <- mean(d$wild_spawners/d$total_spawners)
 predicted_ricker <- d$total_spawners*mean(post$alpha)*exp(-mean(post$beta)*d$total_spawners - mean(post$betaW)*d$total_spawners*prop_wild -mean(post$betaH)*d$total_spawners*(1-prop_wild)) # get predicted mean spawners
 resids <- d$wild_recruits - predicted_ricker
 data.frame(resids, d_unscaled$aug_mean_flow_rear)
-png(filename = "./figures/fig_resid_ricker_plots.png", width=8, height=8, units="in", res=300, pointsize=17)
+png(filename = "./figures/fig_resid_ricker_plots.png", width=8, height=8, units="in", res=1000, pointsize=17)
 layout(matrix(c(1,2,3,4,5,6), ncol=2, nrow=3, byrow=TRUE))
 par(mar=c(4,4,0.5,0.1), bty="L")
 # Standard ricker with residuals
@@ -552,7 +552,7 @@ fig_effect_sizes <- mcmc_areas(post, pars=c("b5", "b4","b3", "b2", "b1"), prob=0
   scale_y_discrete(labels=c("Aug. flow rearing (b5)", "Ice days (b4)", "Max fall flood (b3)", "Aug. flow spawning (b2)", "Smolt to age 3 survival (b1)")) +
   theme_classic()
 fig_effect_sizes
-ggsave("./figures/fig_effect_sizes.png", fig_effect_sizes, width=5, height=3 )
+ggsave("./figures/fig_effect_sizes.png", fig_effect_sizes, width=5, height=3 , dpi=1000)
 
 # plot effect sizes for paper: betas
 fig_effect_sizes_betas <- mcmc_areas(post, pars=c("beta_fix", "betaW_fix", "betaH_fix"), prob=0.8) + 
@@ -603,11 +603,11 @@ fdf$month <- month(fdf$Date)
 
 x_brks <- seq(min(fdf$year), max(fdf$year), 1) # get year breaks
 x_brks_2 <- seq(round(min(x_brks), -1), round(max(x_brks),-1), 5 )
-png(filename = "./figures/fig_aug_flows.png", width=8, height=6, units="in", res=300, pointsize=30)
+png(filename = "./figures/fig_aug_flows.png", width=8, height=6, units="in", res=1000, pointsize=30)
 fdf %>% filter(month==8) %>% 
   ggplot(., aes(y=Value, x=year, group=year)) + 
   geom_boxplot() + 
-  stat_summary(fun.y="mean", geom="point", colour="dodgerblue") +
+  #stat_summary(fun.y="mean", geom="point", colour="dodgerblue") +
   ylab(expression("Daily discharge in August (m"^3*"s"^-1*")"))+
   xlab("Year") +
   scale_x_continuous(breaks=x_brks_2, labels=x_brks_2, limits=c(min(x_brks)-1, max(x_brks)+1), expand=c(0,0), minor_breaks=x_brks_2) +
