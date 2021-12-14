@@ -99,7 +99,7 @@ dev.off()
 
 # Model fit --------
 # Plot predicted vs observed log(recruits/spawner) Publication Figure S3
-png(filename="./figures/fig_predicted~observed_log_RS.png", width=1200, height=800, pointsize = 30, res=1000)
+png(filename="./figures/fig_predicted~observed_log_RS.png", width=1200, height=800, pointsize = 30)
 par(mar=c(4,4,0,0) +0.1)
 plot(mn_pp_log_RS_stacked ~ log(d$wild_recruits/d$total_spawners), ylim=c(min(ci_pp_log_RS_stacked), max(ci_pp_log_RS_stacked)), xlab=expression('Observed log'[e]*'(Recruits/Spawner)'), ylab=expression('Predicted log'[e]*'(Recruits/Spawner)'))
 segments(x0= log(d$wild_recruits/d$total_spawners), y0=ci_pp_log_RS_stacked[1,], y1=ci_pp_log_RS_stacked[2,], lwd=1)
