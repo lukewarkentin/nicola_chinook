@@ -287,7 +287,7 @@ p4 <- cdf4(x)
 
 
 # Plot log(R/S) as a function of mean august flow with distribution of flows -- Publication Figure 2 ----------
-png(filename = "./figures/fig_logRS_flow.png", width=8, height=8, units="in", res=1000, pointsize=20)
+png(filename = "./figures/fig_logRS_flow.png", width=8, height=8, units="in", res=800, pointsize=20)
 
 layout(matrix(c(1,2,2), nrow=3, ncol=1, byrow = TRUE)) # layout for multi-panel plot
 
@@ -352,38 +352,32 @@ prop_wild <- mean(d$wild_spawners/d$total_spawners)
 predicted_ricker <- d$total_spawners*mean(post$alpha)*exp(-mean(post$beta)*d$total_spawners - mean(post$betaW)*d$total_spawners*prop_wild -mean(post$betaH)*d$total_spawners*(1-prop_wild)) # get predicted mean spawners
 resids <- d$wild_recruits - predicted_ricker
 data.frame(resids, d_unscaled$aug_mean_flow_rear)
-png(filename = "./figures/fig_resid_ricker_plots.png", width=8, height=8, units="in", res=1000, pointsize=17)
+png(filename = "./figures/fig_resid_ricker_plots.png", width=8, height=8, units="in", res=800, pointsize=17)
 layout(matrix(c(1,2,3,4,5,6), ncol=2, nrow=3, byrow=TRUE))
-par(mar=c(4,4,0.5,0.1), bty="L")
+par(mar=c(4,4,2,0.5), bty="L")
 # Standard ricker with residuals
-plot(y=d$wild_recruits, x=d$total_spawners, ylab="Wild recruits", xlab="Total spawners")
+plot(y=d$wild_recruits, x=d$total_spawners, ylab="Wild recruits", xlab="Total spawners", main="(a)", font.main=1)
 curve( x*mean(post$alpha)*exp(-mean(post$beta)*x - mean(post$betaW)*x*prop_wild -mean(post$betaH)*x*(1-prop_wild)) , from=0, to=max(d$total_spawners), add=TRUE)
 segments(x0=d$total_spawners, x1=d$total_spawners, y0=predicted_ricker, y1=d$wild_recruits, col="dodgerblue")
-text(x=15000, y=15500, label="a")
 # Smolt to age 3 survival
-plot(x=d_unscaled$smolt_age3_survival, y=d$wild_recruits - predicted_ricker , ylab="Residual recruits", xlab="Smolt to age 3 survival", cex=1.5)
+plot(x=d_unscaled$smolt_age3_survival, y=d$wild_recruits - predicted_ricker , ylab="Residual recruits", xlab="Smolt to age 3 survival", main="(b)", font.main=1, cex=1.5)
 #text(x=d_unscaled$smolt_age3_survival, y=d$wild_recruits - predicted_ricker, label=d$brood_year )
-text(x=0.1, y=10000, label="b")
 
 # Aug flow spawning
-plot(x=d_unscaled$aug_mean_flow, y=d$wild_recruits - predicted_ricker, ylab="Residual recruits", xlab=expression("Mean August flow during spawning (m"^3*"s"^-1*")"), cex=1.5)
+plot(x=d_unscaled$aug_mean_flow, y=d$wild_recruits - predicted_ricker, ylab="Residual recruits", xlab=expression("Mean August flow during spawning (m"^3*"s"^-1*")"),main="(c)", font.main=1, cex=1.5)
 #text(x=d_unscaled$aug_mean_flow, y=d$wild_recruits - predicted_ricker, label=d$brood_year )
-text(x=25, y=10000, label="c")
 
 # Fall flood max
-plot(x=d_unscaled$sep_dec_max_flow, y=d$wild_recruits - predicted_ricker , ylab="Residual recruits", xlab=expression("Max flood Sep-Dec during incubation (m"^3*"s"^-1*")"), cex=1.5)
+plot(x=d_unscaled$sep_dec_max_flow, y=d$wild_recruits - predicted_ricker , ylab="Residual recruits", xlab=expression("Max flood Sep-Dec during incubation (m"^3*"s"^-1*")"), main="(d)", font.main=1, cex=1.5)
 #text(x=d_unscaled$sep_dec_max_flow, y=d$wild_recruits - predicted_ricker, label=d$brood_year )
-text(x=175, y=10000, label="d")
 
 # Ice days
-plot(x=d_unscaled$ice_days, y=d$wild_recruits - predicted_ricker, ylab="Residual recruits", xlab="Ice days", cex=1.5)
+plot(x=d_unscaled$ice_days, y=d$wild_recruits - predicted_ricker, ylab="Residual recruits", xlab="Ice days", main="(e)", font.main=1, cex=1.5)
 #text(x=d_unscaled$ice_days, y=d$wild_recruits - predicted_ricker, label=d$brood_year )
-text(x=110, y=10000, label="e")
 
 # Aug flow rearing
-plot(x=d_unscaled$aug_mean_flow_rear, y=d$wild_recruits - predicted_ricker, ylab="Residual recruits", xlab=expression("Mean August flow during rearing (m"^3*"s"^-1*")"), cex=1.5)
+plot(x=d_unscaled$aug_mean_flow_rear, y=d$wild_recruits - predicted_ricker, ylab="Residual recruits", xlab=expression("Mean August flow during rearing (m"^3*"s"^-1*")"), main="(f)", font.main=1, cex=1.5)
 #text(x=d_unscaled$aug_mean_flow_rear, y=d$wild_recruits - predicted_ricker, label=d$brood_year )
-text(x=25, y=10000, label="f")
 
 dev.off()
 
@@ -603,7 +597,7 @@ fdf$month <- month(fdf$Date)
 
 x_brks <- seq(min(fdf$year), max(fdf$year), 1) # get year breaks
 x_brks_2 <- seq(round(min(x_brks), -1), round(max(x_brks),-1), 5 )
-png(filename = "./figures/fig_aug_flows.png", width=8, height=6, units="in", res=1000, pointsize=30)
+png(filename = "./figures/fig_aug_flows.png", width=8, height=6, units="in", res=800, pointsize=30)
 fdf %>% filter(month==8) %>% 
   ggplot(., aes(y=Value, x=year, group=year)) + 
   geom_boxplot() + 
