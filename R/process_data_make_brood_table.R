@@ -371,10 +371,10 @@ str(unmarked)
 
 unmarked_totals <- unmarked %>% group_by(brood_year, return_age) %>% summarise(unmarked_hatchery_returns= sum(unmarked_returns1, unmarked_returns2, unmarked_returns3, na.rm=TRUE))
 
-# # make a data frame summarized by run year to use for 1992-1994 to correct for unmarked hatchery adults ( we don't have age-specific escapement data for these years)
-# unmarked_total_sum <- unmarked_totals 
-# unmarked_total_sum$run_year <- unmarked_total_sum$brood_year + unmarked_total_sum$return_age
-# unmarked_total_sum1 <- unmarked_total_sum %>% group_by(run_year) %>% summarise(unmarked_hatchery_returns_all_ages = sum(unmarked_hatchery_returns))
+# make a data frame summarized by run year to use for 1992-1994 to correct for unmarked hatchery adults ( we don't have age-specific escapement data for these years)
+unmarked_total_sum <- unmarked_totals
+unmarked_total_sum$run_year <- unmarked_total_sum$brood_year + unmarked_total_sum$return_age
+unmarked_total_sum1 <- unmarked_total_sum %>% group_by(run_year) %>% summarise(unmarked_hatchery_returns_all_ages = sum(unmarked_hatchery_returns))
 
 # save a csv 
 write.csv(unmarked_total_sum1, "./data_out/unmarked_hatchery_returns_by_year.csv", row.names=FALSE)
