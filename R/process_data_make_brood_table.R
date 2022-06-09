@@ -467,7 +467,7 @@ matW <- escapement1 %>%
   ggplot(data=., aes(y=freq, x=brood_year, fill=factor(return_age))) +
   ggtitle("Wild") +
   geom_col()
-ggsave("./figures/fig_mat_schedule.png", grid.arrange(matH, matW, ncol=1))
+#ggsave("./figures/fig_mat_schedule.png", grid.arrange(matH, matW, ncol=1))
 
 
 # For age 3 and 5 returns, use average of other years for NA years
