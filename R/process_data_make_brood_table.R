@@ -213,7 +213,7 @@ return_age <- c(2:5)
 master2 <- crossing(master2, return_age)
 
 # Which rows where there were tagged releases for Nicola stocks are there that are in years with no tags on other release stage?
-check_overlap <- merge(master[case2, ], master[master$sum_tagged_adclipped>0 & master$stock_location_name=="S-Nicola R" & master$brood_year %in% master$brood_year[case2], ], by=c("brood_year"), all.x=TRUE) # If all.x=FALSE, no error on line 264 for loop, and output is slightly different or brood year 1996 age 3 and 4 returns (differences of 4 or 5 fish).  
+check_overlap <- merge(master[case2, ], master[master$sum_tagged_adclipped>0 & master$stock_location_name=="S-Nicola R" & master$brood_year %in% master$brood_year[case2], ], by=c("brood_year"), all.x=FALSE) # If all.x=FALSE, no error on line 264 for loop, and output is slightly different or brood year 1996 age 3 and 4 returns (differences of 4 or 5 fish).  
 check_overlap_sum <- check_overlap %>% group_by(brood_year, release_stage.x, release_stage.y) %>% summarise(n=nrow(.))
 check_overlap_sum$return_index_factor <- paste0(check_overlap_sum$release_stage.x, "_", check_overlap_sum$release_stage.y)
 
